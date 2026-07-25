@@ -30,8 +30,10 @@ export const AccountList = () => {
     try {
       const { data, error } = await supabase
         .from('accounts')
-        .select('*')
-        .eq('created_by', user.id)
+        .select(`
+          *,
+          creator:user_profiles!accounts_created_by_fkey(full_name:name)
+        `)
         .order('created_at', { ascending: false })
       if (error) throw error
       setAccounts(data || [])
@@ -160,7 +162,7 @@ export const AccountList = () => {
               {account.recommended_approach && (
                 <div className="mt-3 p-2 bg-blue-50 rounded-lg">
                   <p className="text-xs text-blue-700">
-                    <span className="font-medium">AI Recommendation:</span> {account.recommended_approach}
+                    <span className="font-medium">Talking points:</span> {account.recommended_approach}
                   </p>
                 </div>
               )}
@@ -169,6 +171,11 @@ export const AccountList = () => {
                 <span className="text-xs text-gray-400">
                   {account.contact_name || 'No primary contact'}
                 </span>
+                {account.creator?.full_name && (
+                  <span className="text-xs text-gray-400" title="Added by">
+                    {account.creator.full_name}
+                  </span>
+                )}
                 <ChevronRight size={16} className="text-gray-300 group-hover:text-primary-600 transition-colors" />
               </div>
             </Link>

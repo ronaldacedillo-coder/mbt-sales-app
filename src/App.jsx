@@ -9,6 +9,7 @@ import { ItineraryForm } from './pages/itinerary/ItineraryForm'
 import { ItineraryApproval } from './pages/itinerary/ItineraryApproval'
 import { AccountList } from './pages/Accounts/AccountList'
 import { AccountForm } from './pages/Accounts/AccountForm'
+import { AccountDetail } from './pages/Accounts/AccountDetail'
 import { FCRList } from './pages/FCR/FCRList'
 import { FCRForm } from './pages/FCR/FCRForm'
 import { FCRApproval } from './pages/FCR/FCRApproval'
@@ -44,7 +45,8 @@ function App() {
         
         <Route path="/accounts" element={<AccountList />} />
         <Route path="/accounts/new" element={<AccountForm />} />
-        <Route path="/accounts/:id" element={<AccountForm />} />
+        <Route path="/accounts/:id" element={<AccountDetail />} />
+        <Route path="/accounts/:id/edit" element={<AccountForm />} />
         
         <Route path="/fcr" element={<FCRList />} />
         <Route path="/fcr/new" element={<FCRForm />} />

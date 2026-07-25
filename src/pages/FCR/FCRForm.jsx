@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { getTeamType, getApproverRole } from '../../utils/roles'
 import { emptyCustomerInfo, emptyFormData } from './fcrTemplates'
 import { FCRFormBody } from './FCRFormBody'
-import { ArrowLeft, Save, Send, AlertCircle, Lock } from 'lucide-react'
+import { ArrowLeft, Save, Send, AlertCircle, Lock, Printer } from 'lucide-react'
 import { format } from 'date-fns'
 
 const blankRecord = (teamType) => ({
@@ -21,11 +21,17 @@ const blankRecord = (teamType) => ({
 export const FCRForm = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { user, role } = useAuth()
   const isEdit = Boolean(id)
   const myTeamType = getTeamType(role)
+  const prefill = !isEdit ? location.state?.prefill : null
 
-  const [record, setRecord] = useState(blankRecord(myTeamType))
+  const [record, setRecord] = useState(() => ({
+    ...blankRecord(myTeamType),
+    ...(prefill?.account_id ? { account_id: prefill.account_id } : {}),
+    ...(prefill?.visit_date ? { visit_date: prefill.visit_date } : {}),
+  }))
   const [teamType, setTeamType] = useState(myTeamType)
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(false)
@@ -41,9 +47,26 @@ export const FCRForm = () => {
     const { data } = await supabase
       .from('accounts')
       .select('id, company_name, city, country, address, contact_email, contact_phone')
-      .eq('created_by', user.id)
       .order('company_name')
     setAccounts(data || [])
+
+    // Coming from "Log FCR" on an itinerary visit: prefill customer info from
+    // the linked account so the rep isn't retyping what's already on file.
+    if (prefill?.account_id) {
+      const account = (data || []).find(a => a.id === prefill.account_id)
+      if (account) {
+        setRecord(prev => ({
+          ...prev,
+          customer_info: {
+            ...prev.customer_info,
+            company_name: account.company_name || '',
+            business_address: [account.address, account.city, account.country].filter(Boolean).join(', '),
+            contact_no: account.contact_phone || '',
+            email: account.contact_email || '',
+          },
+        }))
+      }
+    }
   }
 
   const fetchFCR = async () => {
@@ -67,13 +90,51 @@ export const FCRForm = () => {
     }
   }
 
+  // FCRs capture customer info as free text, but we still want one canonical
+  // Account record per customer so FCR/Meeting/Itinerary history rolls up in
+  // one place (see Account detail page). If the rep didn't explicitly link an
+  // account, try to find an existing one by company name (now that accounts
+  // are shared team-wide); otherwise create one from what was typed here.
+  const resolveAccountId = async () => {
+    if (record.account_id) return record.account_id
+    const companyName = record.customer_info?.company_name?.trim()
+    if (!companyName) return null
+
+    const { data: existing } = await supabase
+      .from('accounts')
+      .select('id')
+      .ilike('company_name', companyName)
+      .limit(1)
+      .maybeSingle()
+    if (existing) return existing.id
+
+    const { data: created, error: createError } = await supabase
+      .from('accounts')
+      .insert([{
+        company_name: companyName,
+        address: record.customer_info.business_address || '',
+        contact_email: record.customer_info.email || '',
+        contact_phone: record.customer_info.contact_no || '',
+        created_by: user.id,
+      }])
+      .select('id')
+      .single()
+
+    if (createError) {
+      console.error('Could not auto-create account from FCR customer info:', createError)
+      return null
+    }
+    return created.id
+  }
+
   const handleSave = async (status) => {
     setSaving(true)
     setError('')
     try {
+      const accountId = await resolveAccountId()
       const payload = {
         ...record,
-        account_id: record.account_id || null,
+        account_id: accountId,
         status,
         team_type: teamType,
         created_by: user.id,
@@ -120,7 +181,7 @@ export const FCRForm = () => {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <button onClick={() => navigate('/fcr')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+        <button onClick={() => navigate('/fcr')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors print:hidden">
           <ArrowLeft size={20} />
         </button>
         <div>
@@ -132,9 +193,18 @@ export const FCRForm = () => {
           </p>
         </div>
         {readOnly && (
-          <span className="ml-auto flex items-center gap-1.5 text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
+          <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
             <Lock size={12} /> Read-only ({record.status.replace('_', ' ')})
           </span>
+        )}
+        {isEdit && (
+          <button
+            onClick={() => window.print()}
+            className="ml-auto btn-secondary flex items-center gap-2 print:hidden"
+            title="Opens your browser's print dialog -- choose 'Save as PDF' to export"
+          >
+            <Printer size={16} /> Print / Export PDF
+          </button>
         )}
       </div>
 
@@ -161,7 +231,7 @@ export const FCRForm = () => {
       />
 
       {!readOnly && (
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex items-center justify-end gap-3 print:hidden">
           <button onClick={() => navigate('/fcr')} className="btn-secondary">Cancel</button>
           <button onClick={() => handleSave('draft')} disabled={saving} className="btn-secondary flex items-center gap-2">
             <Save size={16} />

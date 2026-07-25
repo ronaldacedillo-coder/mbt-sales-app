@@ -3,17 +3,18 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ROLES, getApproverRole } from '../../utils/roles'
-import { 
-  ArrowLeft, 
-  Plus, 
-  Trash2, 
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
   Calendar,
   MapPin,
   Building2,
   Clock,
   Save,
   Send,
-  AlertCircle
+  AlertCircle,
+  ClipboardCheck
 } from 'lucide-react'
 import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns'
 
@@ -44,7 +45,6 @@ export const ItineraryForm = () => {
     const { data } = await supabase
       .from('accounts')
       .select('id, company_name, city, industry')
-      .eq('created_by', user.id)
       .order('company_name')
     setAccounts(data || [])
   }
@@ -243,12 +243,25 @@ export const ItineraryForm = () => {
               <div key={visit.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium text-gray-900 text-sm">Visit #{index + 1}</h4>
-                  <button
-                    onClick={() => removeVisit(index)}
-                    className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    {visit.account_id && (
+                      <button
+                        onClick={() => navigate('/fcr/new', {
+                          state: { prefill: { account_id: visit.account_id, visit_date: visit.visit_date } }
+                        })}
+                        className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                        title="Create a Field Contact Report for this visit"
+                      >
+                        <ClipboardCheck size={13} /> Log FCR
+                      </button>
+                    )}
+                    <button
+                      onClick={() => removeVisit(index)}
+                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">

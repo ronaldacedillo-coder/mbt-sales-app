@@ -5,6 +5,22 @@ export const ROLES = {
   COMMERCIAL_AC_HEAD: 'commercial_ac_head',
 }
 
+// MBT Project Pipeline stores its own, shorter role strings on
+// user_profiles.role ('se', 'bd', 'nsm', 'head', plus 'pm'/'director' for
+// people who only use Pipeline). The Sales app has always spoken in terms
+// of ROLES.* above, so every Pipeline login gets mapped once here rather
+// than touching every place that already compares against ROLES.*.
+const PIPELINE_ROLE_MAP = {
+  se: ROLES.SALES_ENGINEER,
+  bd: ROLES.BD_ENGINEER,
+  nsm: ROLES.NSM,
+  head: ROLES.COMMERCIAL_AC_HEAD,
+}
+
+// Returns null for Pipeline roles the Sales app has no equivalent for
+// (pm, director) -- callers should treat null as "no access to this app".
+export const mapPipelineRole = (pipelineRole) => PIPELINE_ROLE_MAP[pipelineRole] || null
+
 export const ROLE_LABELS = {
   [ROLES.SALES_ENGINEER]: 'Sales Engineer',
   [ROLES.BD_ENGINEER]: 'BD Engineer',

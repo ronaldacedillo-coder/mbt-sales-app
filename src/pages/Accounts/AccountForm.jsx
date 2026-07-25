@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { 
@@ -136,6 +136,7 @@ export const AccountForm = () => {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [generatingRecommendation, setGeneratingRecommendation] = useState(false)
+  const [possibleDuplicates, setPossibleDuplicates] = useState([])
 
   useEffect(() => {
     if (isEdit) fetchAccount()
@@ -160,6 +161,21 @@ export const AccountForm = () => {
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  const checkDuplicates = async () => {
+    const name = formData.company_name?.trim()
+    if (!name) {
+      setPossibleDuplicates([])
+      return
+    }
+    let query = supabase
+      .from('accounts')
+      .select('id, company_name, city')
+      .ilike('company_name', name)
+    if (isEdit) query = query.neq('id', id)
+    const { data } = await query
+    setPossibleDuplicates(data || [])
   }
 
   const generateRecommendation = () => {
@@ -199,14 +215,14 @@ export const AccountForm = () => {
           .update(payload)
           .eq('id', id)
         if (error) throw error
+        navigate(`/accounts/${id}`)
       } else {
         const { error } = await supabase
           .from('accounts')
           .insert([payload])
         if (error) throw error
+        navigate('/accounts')
       }
-
-      navigate('/accounts')
     } catch (err) {
       setError(err.message || 'Failed to save account')
     } finally {
@@ -225,8 +241,8 @@ export const AccountForm = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <button 
-          onClick={() => navigate('/accounts')}
+        <button
+          onClick={() => navigate(isEdit ? `/accounts/${id}` : '/accounts')}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
         >
           <ArrowLeft size={20} />
@@ -262,10 +278,25 @@ export const AccountForm = () => {
                 type="text"
                 value={formData.company_name}
                 onChange={(e) => handleChange('company_name', e.target.value)}
+                onBlur={checkDuplicates}
                 className="input"
                 placeholder="Enter company name"
                 required
               />
+              {possibleDuplicates.length > 0 && (
+                <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                  <p className="font-medium">This looks similar to an existing account -- double check before creating a duplicate:</p>
+                  <ul className="mt-1 space-y-0.5">
+                    {possibleDuplicates.map(d => (
+                      <li key={d.id}>
+                        <Link to={`/accounts/${d.id}`} className="underline hover:text-amber-900">
+                          {d.company_name}{d.city ? ` (${d.city})` : ''}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div>
@@ -481,13 +512,16 @@ export const AccountForm = () => {
           </div>
         </div>
 
-        {/* AI Recommendation */}
+        {/* Suggested Talking Points */}
         <div className="card border-2 border-primary-100">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Sparkles size={20} className="text-primary-600" />
-              AI Recommended Approach
-            </h3>
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <Sparkles size={20} className="text-primary-600" />
+                Suggested Talking Points
+              </h3>
+              <p className="text-xs text-gray-400 mt-0.5">A starting-point suggestion based on industry and the details you've entered below -- not a substitute for your own read of the account. Edit freely.</p>
+            </div>
             <button
               type="button"
               onClick={generateRecommendation}
@@ -495,20 +529,22 @@ export const AccountForm = () => {
               className="btn-secondary text-sm flex items-center gap-2"
             >
               <Lightbulb size={16} />
-              {generatingRecommendation ? 'Generating...' : 'Generate'}
+              {generatingRecommendation ? 'Generating...' : 'Suggest'}
             </button>
           </div>
-          
+
           {formData.recommended_approach ? (
             <div className="p-4 bg-primary-50 rounded-lg">
-              <p className="text-sm text-primary-900 leading-relaxed">
-                {formData.recommended_approach}
-              </p>
+              <textarea
+                value={formData.recommended_approach}
+                onChange={(e) => handleChange('recommended_approach', e.target.value)}
+                className="w-full bg-transparent text-sm text-primary-900 leading-relaxed border-none focus:outline-none resize-y min-h-[60px]"
+              />
             </div>
           ) : (
             <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-300">
               <Lightbulb size={32} className="mx-auto text-gray-300 mb-2" />
-              <p className="text-sm text-gray-500">Fill in company details and click Generate to get AI recommendations</p>
+              <p className="text-sm text-gray-500">Fill in company details and click Suggest for a starting-point approach</p>
             </div>
           )}
         </div>
@@ -528,7 +564,7 @@ export const AccountForm = () => {
         <div className="flex items-center justify-end gap-3">
           <button
             type="button"
-            onClick={() => navigate('/accounts')}
+            onClick={() => navigate(isEdit ? `/accounts/${id}` : '/accounts')}
             className="btn-secondary"
           >
             Cancel

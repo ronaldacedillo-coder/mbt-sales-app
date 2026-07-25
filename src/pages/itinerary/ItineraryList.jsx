@@ -33,7 +33,7 @@ export const ItineraryList = () => {
     try {
       let query = supabase.from('itineraries').select(`
         *,
-        creator:profiles!itineraries_created_by_fkey(full_name, role)
+        creator:user_profiles!itineraries_created_by_fkey(full_name:name, role)
       `)
 
       if (role === ROLES.SALES_ENGINEER || role === ROLES.BD_ENGINEER) {

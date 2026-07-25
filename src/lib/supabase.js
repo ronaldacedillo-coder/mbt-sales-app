@@ -10,7 +10,7 @@ export const getCurrentUser = async () => {
   if (!user) return null
   
   const { data: profile } = await supabase
-    .from('profiles')
+    .from('user_profiles')
     .select('*')
     .eq('id', user.id)
     .single()

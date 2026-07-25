@@ -13,35 +13,44 @@ import {
   AlertCircle,
   Download,
   Copy,
-  Save
+  Save,
+  Pencil,
+  Trash2,
+  Search
 } from 'lucide-react'
 import { format } from 'date-fns'
+import { PipelineProjectsPanel } from '../Accounts/PipelineProjectsPanel'
+
+const blankMeetingForm = () => ({
+  title: '',
+  account_id: '',
+  meeting_date: format(new Date(), 'yyyy-MM-dd'),
+  start_time: '',
+  end_time: '',
+  location: '',
+  attendees: [''],
+  agenda: '',
+  discussion_points: [],
+  decisions: [],
+  action_items: [],
+  next_meeting_date: '',
+  notes: '',
+})
 
 export const MeetingMinutes = () => {
   const { user } = useAuth()
   const [meetings, setMeetings] = useState([])
   const [accounts, setAccounts] = useState([])
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
 
-  const [formData, setFormData] = useState({
-    title: '',
-    account_id: '',
-    meeting_date: format(new Date(), 'yyyy-MM-dd'),
-    start_time: '',
-    end_time: '',
-    location: '',
-    attendees: [''],
-    agenda: '',
-    discussion_points: [],
-    decisions: [],
-    action_items: [],
-    next_meeting_date: '',
-    notes: '',
-  })
+  const [formData, setFormData] = useState(blankMeetingForm())
 
   useEffect(() => {
     fetchMeetings()
@@ -73,7 +82,6 @@ export const MeetingMinutes = () => {
     const { data } = await supabase
       .from('accounts')
       .select('id, company_name')
-      .eq('created_by', user.id)
       .order('company_name')
     setAccounts(data || [])
   }
@@ -235,32 +243,68 @@ Date: ${format(new Date(), 'MMMM dd, yyyy')}
         created_by: user.id,
       }
 
-      const { error } = await supabase.from('meetings').insert([payload])
-      if (error) throw error
+      if (editingId) {
+        const { error } = await supabase.from('meetings').update(payload).eq('id', editingId)
+        if (error) throw error
+        setSuccess('Meeting minutes updated successfully!')
+      } else {
+        const { error } = await supabase.from('meetings').insert([payload])
+        if (error) throw error
+        setSuccess('Meeting minutes saved successfully!')
+      }
 
-      setSuccess('Meeting minutes saved successfully!')
       setShowForm(false)
+      setEditingId(null)
       fetchMeetings()
-      
-      setFormData({
-        title: '',
-        account_id: '',
-        meeting_date: format(new Date(), 'yyyy-MM-dd'),
-        start_time: '',
-        end_time: '',
-        location: '',
-        attendees: [''],
-        agenda: '',
-        discussion_points: [],
-        decisions: [],
-        action_items: [],
-        next_meeting_date: '',
-        notes: '',
-      })
+      setFormData(blankMeetingForm())
     } catch (err) {
       setError(err.message || 'Failed to save meeting minutes')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const startEdit = (meeting) => {
+    setFormData({
+      title: meeting.title || '',
+      account_id: meeting.account_id || '',
+      meeting_date: meeting.meeting_date || format(new Date(), 'yyyy-MM-dd'),
+      start_time: meeting.start_time || '',
+      end_time: meeting.end_time || '',
+      location: meeting.location || '',
+      attendees: meeting.attendees?.length ? meeting.attendees : [''],
+      agenda: meeting.agenda || '',
+      discussion_points: meeting.discussion_points || [],
+      decisions: meeting.decisions || [],
+      action_items: meeting.action_items || [],
+      next_meeting_date: meeting.next_meeting_date || '',
+      notes: meeting.notes || '',
+    })
+    setEditingId(meeting.id)
+    setShowForm(true)
+    setError('')
+    setSuccess('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const cancelForm = () => {
+    setShowForm(false)
+    setEditingId(null)
+    setFormData(blankMeetingForm())
+  }
+
+  const handleDelete = async (id) => {
+    if (!confirm('Delete these meeting minutes? This cannot be undone.')) return
+    setDeletingId(id)
+    try {
+      const { error } = await supabase.from('meetings').delete().eq('id', id)
+      if (error) throw error
+      setSuccess('Meeting minutes deleted.')
+      fetchMeetings()
+    } catch (err) {
+      setError(err.message || 'Failed to delete meeting minutes')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -282,6 +326,22 @@ Date: ${format(new Date(), 'MMMM dd, yyyy')}
     URL.revokeObjectURL(url)
   }
 
+  const emailMinutes = (meeting) => {
+    const subject = encodeURIComponent(`Meeting Minutes: ${meeting.title}`)
+    const body = encodeURIComponent(meeting.minutes_text || generateMinutes())
+    window.location.href = `mailto:?subject=${subject}&body=${body}`
+  }
+
+  const filteredMeetings = meetings.filter((meeting) => {
+    if (!searchTerm) return true
+    const search = searchTerm.toLowerCase()
+    return (
+      meeting.title?.toLowerCase().includes(search) ||
+      meeting.account?.company_name?.toLowerCase().includes(search) ||
+      meeting.attendees?.some(a => a?.toLowerCase().includes(search))
+    )
+  })
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -289,8 +349,8 @@ Date: ${format(new Date(), 'MMMM dd, yyyy')}
           <h1 className="text-2xl font-bold text-gray-900">Meeting Minutes</h1>
           <p className="text-gray-500 mt-1">Generate and manage meeting minutes</p>
         </div>
-        <button 
-          onClick={() => setShowForm(!showForm)}
+        <button
+          onClick={() => (showForm ? cancelForm() : setShowForm(true))}
           className="btn-primary flex items-center gap-2"
         >
           {showForm ? 'Cancel' : <><Plus size={18} /> New Meeting Minutes</>}
@@ -314,7 +374,7 @@ Date: ${format(new Date(), 'MMMM dd, yyyy')}
       {/* Meeting Minutes Form */}
       {showForm && (
         <div className="card space-y-6">
-          <h3 className="text-lg font-semibold text-gray-900">Create Meeting Minutes</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{editingId ? 'Edit Meeting Minutes' : 'Create Meeting Minutes'}</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
@@ -380,6 +440,16 @@ Date: ${format(new Date(), 'MMMM dd, yyyy')}
               />
             </div>
           </div>
+
+          {/* Related Pipeline Projects -- the project list to run through during the meeting */}
+          {formData.account_id && (
+            <PipelineProjectsPanel
+              accountId={formData.account_id}
+              companyName={accounts.find(a => a.id === formData.account_id)?.company_name}
+              canEdit
+              compact
+            />
+          )}
 
           {/* Attendees */}
           <div>
@@ -551,12 +621,26 @@ Date: ${format(new Date(), 'MMMM dd, yyyy')}
           </div>
 
           <div className="flex items-center justify-end gap-3">
-            <button onClick={() => setShowForm(false)} className="btn-secondary">Cancel</button>
+            <button onClick={cancelForm} className="btn-secondary">Cancel</button>
             <button onClick={handleSave} disabled={saving} className="btn-primary flex items-center gap-2">
               <Save size={16} />
-              {saving ? 'Saving...' : 'Save Meeting Minutes'}
+              {saving ? 'Saving...' : editingId ? 'Update Meeting Minutes' : 'Save Meeting Minutes'}
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Search */}
+      {!loading && meetings.length > 0 && (
+        <div className="relative">
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search meetings by title, account, or attendee..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="input pl-10"
+          />
         </div>
       )}
 
@@ -571,9 +655,15 @@ Date: ${format(new Date(), 'MMMM dd, yyyy')}
           <h3 className="text-lg font-medium text-gray-900">No meeting minutes yet</h3>
           <p className="text-gray-500 mt-1">Create your first meeting minutes</p>
         </div>
+      ) : filteredMeetings.length === 0 ? (
+        <div className="card text-center py-16">
+          <Search size={48} className="mx-auto text-gray-300 mb-4" />
+          <h3 className="text-lg font-medium text-gray-900">No matching meetings</h3>
+          <p className="text-gray-500 mt-1">Try a different search term</p>
+        </div>
       ) : (
         <div className="space-y-3">
-          {meetings.map((meeting) => (
+          {filteredMeetings.map((meeting) => (
             <div key={meeting.id} className="card hover:shadow-md transition-shadow">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
@@ -613,6 +703,28 @@ Date: ${format(new Date(), 'MMMM dd, yyyy')}
                     title="Download"
                   >
                     <Download size={18} />
+                  </button>
+                  <button
+                    onClick={() => emailMinutes(meeting)}
+                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Email to attendees"
+                  >
+                    <Mail size={18} />
+                  </button>
+                  <button
+                    onClick={() => startEdit(meeting)}
+                    className="p-2 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                    title="Edit"
+                  >
+                    <Pencil size={18} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(meeting.id)}
+                    disabled={deletingId === meeting.id}
+                    className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                    title="Delete"
+                  >
+                    <Trash2 size={18} />
                   </button>
                 </div>
               </div>

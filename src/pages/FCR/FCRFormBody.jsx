@@ -1,5 +1,6 @@
 import { EditableTable } from '../../components/EditableTable'
 import { monthKeys, monthLabels, PROJECT_REP_LABEL } from './fcrTemplates'
+import { PipelineProjectsPanel } from '../Accounts/PipelineProjectsPanel'
 
 const SectionHeader = ({ children }) => (
   <div className="bg-gray-900 text-white text-sm font-semibold px-3 py-2 rounded-t-lg tracking-wide">
@@ -51,6 +52,29 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
       }
     }
     set(patch)
+  }
+
+  const importPipelineProject = (p) => {
+    const money = (n) => (n || n === 0) ? `PHP ${Number(n).toLocaleString()}` : ''
+    const amountParts = [
+      money(p.discounted_value) && `Discounted ${money(p.discounted_value)}`,
+      money(p.srp_value) && `SRP ${money(p.srp_value)}`,
+    ].filter(Boolean)
+    const newRow = {
+      project_name_owner: [p.name, p.equipment?.length ? `(${p.equipment.join(', ')})` : ''].filter(Boolean).join(' '),
+      address: p.location || '',
+      amount: amountParts.join(' / '),
+      rollout: p.delivery || '',
+      rep: p.se || p.bd_person || '',
+      status: p.status || '',
+      next_steps: '',
+    }
+    setFormData({
+      project_opportunities: {
+        ...formData.project_opportunities,
+        primary: [...(formData.project_opportunities?.primary || []), newRow],
+      },
+    })
   }
 
   const repLabel = PROJECT_REP_LABEL[teamType] || 'Rep'
@@ -117,6 +141,17 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
           <Field label="Visit Date" type="date" value={record.visit_date} readOnly={readOnly} onChange={(v) => set({ visit_date: v })} />
         </div>
       </div>
+
+      {/* Related Pipeline Projects -- only once this FCR is linked to an account */}
+      {record.account_id && (
+        <PipelineProjectsPanel
+          accountId={record.account_id}
+          companyName={customerInfo.company_name}
+          canEdit={!readOnly}
+          onImport={readOnly ? null : importPipelineProject}
+          compact
+        />
+      )}
 
       {/* CMIP Program Execution Check */}
       <div>

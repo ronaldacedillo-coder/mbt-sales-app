@@ -2,19 +2,22 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { Link } from 'react-router-dom'
-import { 
-  Calendar, 
-  Building2, 
-  ClipboardCheck, 
+import {
+  Calendar,
+  Building2,
+  ClipboardCheck,
   Users,
   TrendingUp,
   Clock,
   AlertCircle,
   CheckCircle2,
+  XCircle,
   ArrowRight
 } from 'lucide-react'
 import { ROLES, canApproveItinerary, canApproveFCR } from '../utils/roles'
-import { format } from 'date-fns'
+import { format, parseISO, differenceInCalendarDays, addDays } from 'date-fns'
+
+const LEADERSHIP_ROLES = [ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD]
 
 export const Dashboard = () => {
   const { user, profile, role } = useAuth()
@@ -28,6 +31,8 @@ export const Dashboard = () => {
   })
   const [recentItineraries, setRecentItineraries] = useState([])
   const [recentFCRs, setRecentFCRs] = useState([])
+  const [followUps, setFollowUps] = useState([])
+  const [teamStats, setTeamStats] = useState({ approvedFCRs: 0, rejectedFCRs: 0, overdueFollowUps: 0 })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -66,16 +71,15 @@ export const Dashboard = () => {
 
       const { data: fcrs } = await fcrQuery.order('created_at', { ascending: false })
 
-      // Fetch accounts
+      // Fetch accounts (team-wide -- accounts are a shared address book)
       const { data: accounts } = await supabase
         .from('accounts')
         .select('id')
-        .eq('created_by', user.id)
 
       // Fetch meetings
       const { data: meetings } = await supabase
         .from('meetings')
-        .select('id')
+        .select('id, title, next_meeting_date, account:accounts(company_name)')
         .eq('created_by', user.id)
 
       setStats({
@@ -89,6 +93,58 @@ export const Dashboard = () => {
 
       setRecentItineraries(itineraries?.slice(0, 5) || [])
       setRecentFCRs(fcrs?.slice(0, 5) || [])
+
+      // Follow-ups due soon or overdue: FCR follow_up_date + Meeting next_meeting_date
+      const today = new Date()
+      const horizon = addDays(today, 14)
+      const items = []
+
+      for (const f of fcrs || []) {
+        if (!f.follow_up_date || f.status !== 'approved') continue
+        const dueDate = parseISO(f.follow_up_date)
+        if (dueDate <= horizon) {
+          items.push({
+            key: `fcr-${f.id}`,
+            type: 'FCR follow-up',
+            label: f.customer_info?.company_name || 'Field Contact Report',
+            date: f.follow_up_date,
+            overdue: differenceInCalendarDays(dueDate, today) < 0,
+            link: `/fcr/${f.id}`,
+          })
+        }
+      }
+
+      for (const m of meetings || []) {
+        if (!m.next_meeting_date) continue
+        const dueDate = parseISO(m.next_meeting_date)
+        if (dueDate <= horizon) {
+          items.push({
+            key: `meeting-${m.id}`,
+            type: 'Next meeting',
+            label: m.account?.company_name || m.title,
+            date: m.next_meeting_date,
+            overdue: differenceInCalendarDays(dueDate, today) < 0,
+            link: '/meetings',
+          })
+        }
+      }
+
+      items.sort((a, b) => a.date.localeCompare(b.date))
+      setFollowUps(items)
+
+      // Leadership team-overview: only meaningful for NSM / Commercial AC Head,
+      // over the reports they already have visibility into above
+      if (LEADERSHIP_ROLES.includes(role)) {
+        const overdueFollowUps = (fcrs || []).filter(f =>
+          f.follow_up_date && f.status === 'approved' && parseISO(f.follow_up_date) < today
+        ).length
+
+        setTeamStats({
+          approvedFCRs: (fcrs || []).filter(f => f.status === 'approved').length,
+          rejectedFCRs: (fcrs || []).filter(f => f.status === 'rejected').length,
+          overdueFollowUps,
+        })
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
     } finally {
@@ -163,6 +219,51 @@ export const Dashboard = () => {
         />
       </div>
 
+      {role && LEADERSHIP_ROLES.includes(role) && (
+        <div className="card">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Overview</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="p-4 bg-emerald-50 rounded-lg">
+              <p className="text-2xl font-bold text-emerald-700">{teamStats.approvedFCRs}</p>
+              <p className="text-sm text-emerald-700 mt-0.5">FCRs Approved</p>
+            </div>
+            <div className="p-4 bg-red-50 rounded-lg">
+              <p className="text-2xl font-bold text-red-700">{teamStats.rejectedFCRs}</p>
+              <p className="text-sm text-red-700 mt-0.5">FCRs Rejected</p>
+            </div>
+            <div className="p-4 bg-amber-50 rounded-lg">
+              <p className="text-2xl font-bold text-amber-700">{teamStats.overdueFollowUps}</p>
+              <p className="text-sm text-amber-700 mt-0.5">Overdue Follow-ups</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {followUps.length > 0 && (
+        <div className="card">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Clock size={18} /> Follow-ups Due Soon
+          </h3>
+          <div className="space-y-2">
+            {followUps.map(item => (
+              <Link
+                key={item.key}
+                to={item.link}
+                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{item.label}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{item.type}</p>
+                </div>
+                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${item.overdue ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {item.overdue ? 'Overdue · ' : 'Due '}{format(parseISO(item.date), 'MMM dd, yyyy')}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Recent Itineraries */}
         <div className="card">
@@ -218,9 +319,9 @@ export const Dashboard = () => {
               {recentFCRs.map((item) => (
                 <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                   <div>
-                    <p className="font-medium text-gray-900 text-sm">{item.account_name || 'Field Contact Report'}</p>
+                    <p className="font-medium text-gray-900 text-sm">{item.customer_info?.company_name || 'Field Contact Report'}</p>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {format(new Date(item.visit_date), 'MMM dd, yyyy')}
+                      {item.visit_date ? format(new Date(item.visit_date), 'MMM dd, yyyy') : 'No date'}
                     </p>
                   </div>
                   {getStatusBadge(item.status)}

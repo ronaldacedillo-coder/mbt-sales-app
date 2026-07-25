@@ -35,7 +35,7 @@ export const ItineraryApproval = () => {
         .from('itineraries')
         .select(`
           *,
-          creator:profiles!itineraries_created_by_fkey(full_name, role, email)
+          creator:user_profiles!itineraries_created_by_fkey(full_name:name, role)
         `)
         .eq('status', 'pending_approval')
 

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { ROLES } from '../utils/roles'
+import { ROLES, mapPipelineRole } from '../utils/roles'
 
 const AuthContext = createContext()
 
@@ -43,13 +43,28 @@ export const AuthProvider = ({ children }) => {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Sales app users are really MBT Project Pipeline users now -- one login,
+  // one user_profiles table. Pipeline's role strings ('se', 'bd', 'nsm',
+  // 'head', plus 'pm'/'director' for Pipeline-only staff) get mapped to the
+  // Sales app's own ROLES.* here, and `full_name` is kept as an alias for
+  // Pipeline's `name` column so existing `profile?.full_name` reads
+  // elsewhere in the app don't need to change.
   const fetchProfile = async (userId) => {
     const { data } = await supabase
-      .from('profiles')
+      .from('user_profiles')
       .select('*')
       .eq('id', userId)
       .single()
-    setProfile(data)
+    if (!data) {
+      setProfile(null)
+      return
+    }
+    setProfile({
+      ...data,
+      full_name: data.name,
+      pipeline_role: data.role,
+      role: mapPipelineRole(data.role),
+    })
   }
 
   const signIn = async (email, password) => {
