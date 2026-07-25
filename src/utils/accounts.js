@@ -1,8 +1,5 @@
 // Trade Terms: every account must declare how it buys before it's
-// considered "profiled" -- see AccountForm.jsx. Distributor names aren't
-// locked to an exact list yet (free text for now); once MBT's 2 official
-// distributor names are confirmed, DISTRIBUTOR_OPTIONS can be filled in and
-// AccountForm's distributor field switched from a text input to a <select>.
+// considered "profiled" -- see AccountForm.jsx.
 export const TRADE_TERMS = {
   DIRECT: 'direct_cmi',
   DISTRIBUTOR: 'distributor',
@@ -13,9 +10,9 @@ export const TRADE_TERMS_LABELS = {
   [TRADE_TERMS.DISTRIBUTOR]: 'Transacts through an MBT Distributor',
 }
 
-// TODO: replace with the 2 official MBT distributor names once provided,
-// and switch AccountForm's distributor_name field to a <select> using this.
-export const DISTRIBUTOR_OPTIONS = []
+// The 2 MBT distributors -- AccountForm renders these as a <select> once
+// this list is non-empty (see DISTRIBUTOR_OPTIONS.length check there).
+export const DISTRIBUTOR_OPTIONS = ['Polaris', 'G-Energy']
 
 // An account is "profiled" -- and therefore selectable in the Itinerary and
 // FCR account dropdowns -- once it has a company name and a declared Trade
