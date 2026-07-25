@@ -20,6 +20,8 @@ import {
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { PipelineProjectsPanel } from './PipelineProjectsPanel'
+import { TRADE_TERMS_LABELS } from '../../utils/accounts'
+import { HandCoins } from 'lucide-react'
 
 const MANAGER_ROLES = [ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD]
 
@@ -167,6 +169,23 @@ export const AccountDetail = () => {
             <p className="text-xs text-gray-400 pt-2 border-t border-gray-100">
               Added by {account.creator?.full_name || 'Unknown'}{account.created_at ? ` · ${format(parseISO(account.created_at), 'MMM dd, yyyy')}` : ''}
             </p>
+          </div>
+
+          <div className={`card space-y-2 ${account.trade_terms ? '' : 'border-2 border-amber-200'}`}>
+            <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <HandCoins size={16} /> Trade Terms
+            </h3>
+            {account.trade_terms ? (
+              <>
+                <p className="text-sm text-gray-700">{TRADE_TERMS_LABELS[account.trade_terms]}</p>
+                {account.distributor_name && <p className="text-xs text-gray-500">Distributor: {account.distributor_name}</p>}
+              </>
+            ) : (
+              <p className="text-sm text-amber-700">
+                Not set -- this account won't appear in Itinerary or FCR account dropdowns until Trade Terms is filled in.
+                {canEdit && <> <Link to={`/accounts/${id}/edit`} className="underline">Fill it in now</Link>.</>}
+              </p>
+            )}
           </div>
 
           <div className="card space-y-3">

@@ -43,30 +43,17 @@ export const FCRForm = () => {
     if (isEdit) fetchFCR()
   }, [id])
 
+  // Only accounts with a completed profile (Trade Terms set -- see
+  // AccountForm) are selectable. Customer Information on the FCR is fully
+  // derived from the account record now, not typed here -- see
+  // accountToCustomerInfo() in FCRFormBody.jsx.
   const fetchAccounts = async () => {
     const { data } = await supabase
       .from('accounts')
-      .select('id, company_name, city, country, address, contact_email, contact_phone')
+      .select('id, company_name, city, country, address, contact_email, contact_phone, owners, region, dealer_classification, channel, ase_tse, visit_freq_days, trade_terms, distributor_name')
+      .not('trade_terms', 'is', null)
       .order('company_name')
     setAccounts(data || [])
-
-    // Coming from "Log FCR" on an itinerary visit: prefill customer info from
-    // the linked account so the rep isn't retyping what's already on file.
-    if (prefill?.account_id) {
-      const account = (data || []).find(a => a.id === prefill.account_id)
-      if (account) {
-        setRecord(prev => ({
-          ...prev,
-          customer_info: {
-            ...prev.customer_info,
-            company_name: account.company_name || '',
-            business_address: [account.address, account.city, account.country].filter(Boolean).join(', '),
-            contact_no: account.contact_phone || '',
-            email: account.contact_email || '',
-          },
-        }))
-      }
-    }
   }
 
   const fetchFCR = async () => {
@@ -90,51 +77,16 @@ export const FCRForm = () => {
     }
   }
 
-  // FCRs capture customer info as free text, but we still want one canonical
-  // Account record per customer so FCR/Meeting/Itinerary history rolls up in
-  // one place (see Account detail page). If the rep didn't explicitly link an
-  // account, try to find an existing one by company name (now that accounts
-  // are shared team-wide); otherwise create one from what was typed here.
-  const resolveAccountId = async () => {
-    if (record.account_id) return record.account_id
-    const companyName = record.customer_info?.company_name?.trim()
-    if (!companyName) return null
-
-    const { data: existing } = await supabase
-      .from('accounts')
-      .select('id')
-      .ilike('company_name', companyName)
-      .limit(1)
-      .maybeSingle()
-    if (existing) return existing.id
-
-    const { data: created, error: createError } = await supabase
-      .from('accounts')
-      .insert([{
-        company_name: companyName,
-        address: record.customer_info.business_address || '',
-        contact_email: record.customer_info.email || '',
-        contact_phone: record.customer_info.contact_no || '',
-        created_by: user.id,
-      }])
-      .select('id')
-      .single()
-
-    if (createError) {
-      console.error('Could not auto-create account from FCR customer info:', createError)
-      return null
-    }
-    return created.id
-  }
-
   const handleSave = async (status) => {
+    if (!record.account_id) {
+      setError('Please select an account above -- an FCR can only be filed against a profiled account')
+      return
+    }
     setSaving(true)
     setError('')
     try {
-      const accountId = await resolveAccountId()
       const payload = {
         ...record,
-        account_id: accountId,
         status,
         team_type: teamType,
         created_by: user.id,
@@ -161,8 +113,8 @@ export const FCRForm = () => {
   }
 
   const handleSubmitForApproval = () => {
-    if (!record.customer_info?.company_name) {
-      setError('Please fill in at least the Company Name under Customer Information')
+    if (!record.account_id) {
+      setError('Please select an account above -- an FCR can only be filed against a profiled account')
       return
     }
     handleSave('pending_approval')

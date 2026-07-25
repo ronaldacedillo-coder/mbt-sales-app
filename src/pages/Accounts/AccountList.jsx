@@ -140,10 +140,15 @@ export const AccountList = () => {
                 </span>
               </div>
 
-              <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-primary-600 transition-colors">
+              <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-primary-600 transition-colors flex items-center gap-2">
                 {account.company_name}
+                {!account.trade_terms && (
+                  <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 whitespace-nowrap" title="Trade Terms not set -- won't appear in Itinerary/FCR dropdowns">
+                    Profile incomplete
+                  </span>
+                )}
               </h3>
-              
+
               <div className="space-y-1.5 text-sm text-gray-500">
                 {account.industry && (
                   <p className="flex items-center gap-1.5">

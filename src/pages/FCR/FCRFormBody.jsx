@@ -1,6 +1,27 @@
+import { useEffect } from 'react'
+import { Link } from 'react-router-dom'
+import { Pencil } from 'lucide-react'
 import { EditableTable } from '../../components/EditableTable'
 import { monthKeys, monthLabels, PROJECT_REP_LABEL } from './fcrTemplates'
 import { PipelineProjectsPanel } from '../Accounts/PipelineProjectsPanel'
+import { TRADE_TERMS_LABELS } from '../../utils/accounts'
+
+// Customer Information now lives entirely on the Account profile -- this
+// just maps an account row onto the shape the FCR's read-only fields
+// display, so editing it here is impossible by construction (there's
+// nowhere in this component that writes to these values).
+const accountToCustomerInfo = (account) => ({
+  company_name: account.company_name || '',
+  business_address: [account.address, account.city, account.country].filter(Boolean).join(', '),
+  owners: account.owners || '',
+  region: account.region || '',
+  contact_no: account.contact_phone || '',
+  email: account.contact_email || '',
+  dealer_classification: account.dealer_classification || '',
+  channel: account.channel || '',
+  ase_tse: account.ase_tse || '',
+  visit_freq_days: account.visit_freq_days || '',
+})
 
 const SectionHeader = ({ children }) => (
   <div className="bg-gray-900 text-white text-sm font-semibold px-3 py-2 rounded-t-lg tracking-wide">
@@ -35,24 +56,28 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
   const formData = record.form_data || {}
 
   const set = (patch) => onChange({ ...record, ...patch })
-  const setCustomerInfo = (patch) => set({ customer_info: { ...customerInfo, ...patch } })
   const setFormData = (patch) => set({ form_data: { ...formData, ...patch } })
+
+  const selectedAccount = accounts.find(a => a.id === record.account_id)
 
   const handleAccountSelect = (accountId) => {
     const account = accounts.find(a => a.id === accountId)
-    const patch = { account_id: accountId }
-    // Only prefill blank fields so we never clobber something already typed.
-    if (account && !customerInfo.company_name) {
-      patch.customer_info = {
-        ...customerInfo,
-        company_name: account.company_name || '',
-        business_address: [account.address, account.city, account.country].filter(Boolean).join(', '),
-        contact_no: account.contact_phone || '',
-        email: account.contact_email || '',
-      }
-    }
-    set(patch)
+    set({
+      account_id: accountId,
+      customer_info: account ? accountToCustomerInfo(account) : {},
+    })
   }
+
+  // Keeps Customer Information in sync with the account record -- covers
+  // both switching accounts above and arriving here already linked (e.g.
+  // the "Log FCR" quick-create from an itinerary visit), without ever
+  // letting these fields be typed independently of the account profile.
+  useEffect(() => {
+    if (selectedAccount) {
+      set({ customer_info: accountToCustomerInfo(selectedAccount) })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedAccount])
 
   const importPipelineProject = (p) => {
     const money = (n) => (n || n === 0) ? `PHP ${Number(n).toLocaleString()}` : ''
@@ -106,39 +131,60 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
 
   return (
     <div className="space-y-6">
-      {/* Link to an existing account (optional convenience, not required) */}
+      {/* Account -- required. Customer Information below is entirely
+          derived from the selected account's profile and can't be typed
+          here; it can only be changed by editing the account itself. */}
       {!readOnly && (
         <div className="card">
-          <label className="label">Link to existing account (optional)</label>
+          <label className="label">Account *</label>
           <select
             value={record.account_id || ''}
             onChange={(e) => handleAccountSelect(e.target.value)}
             className="input"
           >
-            <option value="">Not linked -- fill in customer info manually below</option>
+            <option value="">Select a profiled account</option>
             {accounts.map(acc => (
               <option key={acc.id} value={acc.id}>{acc.company_name} ({acc.city})</option>
             ))}
           </select>
-          <p className="text-xs text-gray-400 mt-1">Selecting an account fills in blank fields below from your saved account info -- everything stays editable.</p>
+          {accounts.length === 0 ? (
+            <p className="text-xs text-amber-600 mt-1">
+              No profiled accounts yet -- <Link to="/accounts/new" className="underline">create one</Link> (with Trade Terms filled in) first.
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400 mt-1">Not seeing the account you need? It needs a completed profile (Trade Terms filled in) first -- <Link to="/accounts/new" className="underline">create it here</Link>.</p>
+          )}
         </div>
       )}
 
-      {/* Customer Information */}
+      {/* Customer Information -- read-only, sourced from the account profile */}
       <div>
         <SectionHeader>Customer Information</SectionHeader>
-        <div className="border border-t-0 border-gray-200 rounded-b-lg p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-          <Field label="Company Name" value={customerInfo.company_name} readOnly={readOnly} onChange={(v) => setCustomerInfo({ company_name: v })} />
-          <Field label="Business Address" value={customerInfo.business_address} readOnly={readOnly} onChange={(v) => setCustomerInfo({ business_address: v })} />
-          <Field label="Owner/s" value={customerInfo.owners} readOnly={readOnly} onChange={(v) => setCustomerInfo({ owners: v })} />
-          <Field label="Region" value={customerInfo.region} readOnly={readOnly} onChange={(v) => setCustomerInfo({ region: v })} />
-          <Field label="Contact No." value={customerInfo.contact_no} readOnly={readOnly} onChange={(v) => setCustomerInfo({ contact_no: v })} />
-          <Field label="E-Mail Address" value={customerInfo.email} readOnly={readOnly} onChange={(v) => setCustomerInfo({ email: v })} />
-          <Field label="Dealer Classification" value={customerInfo.dealer_classification} readOnly={readOnly} onChange={(v) => setCustomerInfo({ dealer_classification: v })} />
-          <Field label="Channel" value={customerInfo.channel} readOnly={readOnly} onChange={(v) => setCustomerInfo({ channel: v })} />
-          <Field label="ASE / TSE" value={customerInfo.ase_tse} readOnly={readOnly} onChange={(v) => setCustomerInfo({ ase_tse: v })} />
-          <Field label="Visit Freq / Days" value={customerInfo.visit_freq_days} readOnly={readOnly} onChange={(v) => setCustomerInfo({ visit_freq_days: v })} />
-          <Field label="Visit Date" type="date" value={record.visit_date} readOnly={readOnly} onChange={(v) => set({ visit_date: v })} />
+        <div className="border border-t-0 border-gray-200 rounded-b-lg p-4">
+          {!readOnly && record.account_id && (
+            <div className="flex items-center justify-end mb-3">
+              <Link
+                to={`/accounts/${record.account_id}/edit`}
+                className="text-xs font-medium text-primary-600 hover:text-primary-700 flex items-center gap-1"
+              >
+                <Pencil size={12} /> Edit in Account profile
+              </Link>
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field label="Company Name" value={customerInfo.company_name} readOnly onChange={() => {}} />
+            <Field label="Business Address" value={customerInfo.business_address} readOnly onChange={() => {}} />
+            <Field label="Owner/s" value={customerInfo.owners} readOnly onChange={() => {}} />
+            <Field label="Region" value={customerInfo.region} readOnly onChange={() => {}} />
+            <Field label="Contact No." value={customerInfo.contact_no} readOnly onChange={() => {}} />
+            <Field label="E-Mail Address" value={customerInfo.email} readOnly onChange={() => {}} />
+            <Field label="Dealer Classification" value={customerInfo.dealer_classification} readOnly onChange={() => {}} />
+            <Field label="Channel" value={customerInfo.channel} readOnly onChange={() => {}} />
+            <Field label="ASE / TSE" value={customerInfo.ase_tse} readOnly onChange={() => {}} />
+            <Field label="Visit Freq / Days" value={customerInfo.visit_freq_days} readOnly onChange={() => {}} />
+            <Field label="Trade Terms" value={selectedAccount ? TRADE_TERMS_LABELS[selectedAccount.trade_terms] : ''} readOnly onChange={() => {}} />
+            <Field label="Visit Date" type="date" value={record.visit_date} readOnly={readOnly} onChange={(v) => set({ visit_date: v })} />
+          </div>
         </div>
       </div>
 

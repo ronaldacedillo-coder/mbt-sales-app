@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ROLES, getApproverRole } from '../../utils/roles'
@@ -51,10 +51,14 @@ export const ItineraryForm = () => {
     if (isEdit) fetchItinerary()
   }, [id])
 
+  // Only accounts with a completed profile (Trade Terms set -- see
+  // AccountForm) are selectable here. Reps who haven't profiled the
+  // account yet need to do that first, from the Accounts section.
   const fetchAccounts = async () => {
     const { data } = await supabase
       .from('accounts')
       .select('id, company_name, city, industry')
+      .not('trade_terms', 'is', null)
       .order('company_name')
     setAccounts(data || [])
   }
@@ -408,6 +412,11 @@ export const ItineraryForm = () => {
                         </option>
                       ))}
                     </select>
+                    {accounts.length === 0 && (
+                      <p className="text-xs text-amber-600 mt-1">
+                        No profiled accounts yet -- <Link to="/accounts/new" className="underline">create one</Link> (with Trade Terms filled in) first.
+                      </p>
+                    )}
                   </div>
 
                   <div>

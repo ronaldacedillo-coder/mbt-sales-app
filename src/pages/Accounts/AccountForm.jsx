@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { 
-  ArrowLeft, 
-  Building2, 
-  Save, 
+import { TRADE_TERMS, TRADE_TERMS_LABELS, DISTRIBUTOR_OPTIONS } from '../../utils/accounts'
+import {
+  ArrowLeft,
+  Building2,
+  Save,
   AlertCircle,
   Lightbulb,
-  Sparkles
+  Sparkles,
+  HandCoins
 } from 'lucide-react'
 
 const INDUSTRIES = [
@@ -131,6 +133,14 @@ export const AccountForm = () => {
     priority: 'medium',
     notes: '',
     recommended_approach: '',
+    owners: '',
+    region: '',
+    dealer_classification: '',
+    channel: '',
+    ase_tse: '',
+    visit_freq_days: '',
+    trade_terms: '',
+    distributor_name: '',
   })
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -200,9 +210,18 @@ export const AccountForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setSaving(true)
     setError('')
 
+    if (!formData.trade_terms) {
+      setError('Please select Trade Terms below -- an account can\'t be saved without it, since Itinerary and FCR only let reps pick from fully profiled accounts.')
+      return
+    }
+    if (formData.trade_terms === TRADE_TERMS.DISTRIBUTOR && !formData.distributor_name?.trim()) {
+      setError('Please specify which MBT Distributor this account transacts through.')
+      return
+    }
+
+    setSaving(true)
     try {
       const payload = {
         ...formData,
@@ -363,6 +382,57 @@ export const AccountForm = () => {
           </div>
         </div>
 
+        {/* Trade Terms -- required. Itinerary and FCR only let reps select
+            accounts that have this set, so this is the gate that makes an
+            account "profiled". */}
+        <div className="card border-2 border-amber-100">
+          <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
+            <HandCoins size={20} />
+            Trade Terms *
+          </h3>
+          <p className="text-xs text-gray-400 mb-4">Required -- this account won't be selectable in Itinerary or FCR until this is set.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {Object.values(TRADE_TERMS).map(tt => (
+              <button
+                key={tt}
+                type="button"
+                onClick={() => handleChange('trade_terms', tt)}
+                className={`text-left p-3 rounded-lg border-2 transition-colors ${
+                  formData.trade_terms === tt ? 'border-primary-500 bg-primary-50' : 'border-gray-200 hover:bg-gray-50'
+                }`}
+              >
+                <span className="text-sm font-medium text-gray-900">{TRADE_TERMS_LABELS[tt]}</span>
+              </button>
+            ))}
+          </div>
+
+          {formData.trade_terms === TRADE_TERMS.DISTRIBUTOR && (
+            <div className="mt-4">
+              <label className="label">MBT Distributor *</label>
+              {DISTRIBUTOR_OPTIONS.length > 0 ? (
+                <select
+                  value={formData.distributor_name}
+                  onChange={(e) => handleChange('distributor_name', e.target.value)}
+                  className="input"
+                >
+                  <option value="">Select distributor</option>
+                  {DISTRIBUTOR_OPTIONS.map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={formData.distributor_name}
+                  onChange={(e) => handleChange('distributor_name', e.target.value)}
+                  className="input"
+                  placeholder="Distributor name"
+                />
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Location */}
         <div className="card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Location</h3>
@@ -462,6 +532,75 @@ export const AccountForm = () => {
                 onChange={(e) => handleChange('decision_maker_title', e.target.value)}
                 className="input"
                 placeholder="e.g., CEO, VP of Operations"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Coverage & Classification -- this is the info FCR's Customer
+            Information section used to collect as free text on every visit;
+            it now lives here once, and FCR just displays it read-only. */}
+        <div className="card">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Coverage &amp; Classification</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="label">Owner/s</label>
+              <input
+                type="text"
+                value={formData.owners}
+                onChange={(e) => handleChange('owners', e.target.value)}
+                className="input"
+                placeholder="Business owner(s)"
+              />
+            </div>
+            <div>
+              <label className="label">Region</label>
+              <input
+                type="text"
+                value={formData.region}
+                onChange={(e) => handleChange('region', e.target.value)}
+                className="input"
+                placeholder="e.g., Metro Manila East"
+              />
+            </div>
+            <div>
+              <label className="label">Dealer Classification</label>
+              <input
+                type="text"
+                value={formData.dealer_classification}
+                onChange={(e) => handleChange('dealer_classification', e.target.value)}
+                className="input"
+                placeholder="e.g., Gold Dealer"
+              />
+            </div>
+            <div>
+              <label className="label">Channel</label>
+              <input
+                type="text"
+                value={formData.channel}
+                onChange={(e) => handleChange('channel', e.target.value)}
+                className="input"
+                placeholder="e.g., Retail / Aircon Specialist"
+              />
+            </div>
+            <div>
+              <label className="label">ASE / TSE</label>
+              <input
+                type="text"
+                value={formData.ase_tse}
+                onChange={(e) => handleChange('ase_tse', e.target.value)}
+                className="input"
+                placeholder="Assigned ASE / TSE"
+              />
+            </div>
+            <div>
+              <label className="label">Visit Freq / Days</label>
+              <input
+                type="text"
+                value={formData.visit_freq_days}
+                onChange={(e) => handleChange('visit_freq_days', e.target.value)}
+                className="input"
+                placeholder="e.g., Bi-weekly / Tue & Thu"
               />
             </div>
           </div>
