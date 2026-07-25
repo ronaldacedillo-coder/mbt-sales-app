@@ -1,0 +1,317 @@
+import { useEffect, useState } from 'react'
+import { useAuth } from '../context/AuthContext'
+import { supabase } from '../lib/supabase'
+import { Link } from 'react-router-dom'
+import { 
+  Calendar, 
+  Building2, 
+  ClipboardCheck, 
+  Users,
+  TrendingUp,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
+  ArrowRight
+} from 'lucide-react'
+import { ROLES, canApproveItinerary, canApproveFCR } from '../utils/roles'
+import { format } from 'date-fns'
+
+export const Dashboard = () => {
+  const { user, profile, role } = useAuth()
+  const [stats, setStats] = useState({
+    pendingItineraries: 0,
+    pendingFCRs: 0,
+    totalAccounts: 0,
+    totalMeetings: 0,
+    myItineraries: 0,
+    myFCRs: 0,
+  })
+  const [recentItineraries, setRecentItineraries] = useState([])
+  const [recentFCRs, setRecentFCRs] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [user, role])
+
+  const fetchDashboardData = async () => {
+    if (!user) return
+    setLoading(true)
+
+    try {
+      // Fetch itineraries based on role
+      let itineraryQuery = supabase.from('itineraries').select('*')
+      
+      if (role === ROLES.SALES_ENGINEER || role === ROLES.BD_ENGINEER) {
+        itineraryQuery = itineraryQuery.eq('created_by', user.id)
+      } else if (role === ROLES.NSM) {
+        itineraryQuery = itineraryQuery.in('submitter_role', [ROLES.SALES_ENGINEER, ROLES.NSM])
+      } else if (role === ROLES.COMMERCIAL_AC_HEAD) {
+        // Commercial AC Head sees BD and NSM itineraries
+        itineraryQuery = itineraryQuery.in('submitter_role', [ROLES.BD_ENGINEER, ROLES.NSM])
+      }
+
+      const { data: itineraries } = await itineraryQuery.order('created_at', { ascending: false })
+
+      // Fetch FCRs
+      let fcrQuery = supabase.from('fcrs').select('*')
+      
+      if (role === ROLES.SALES_ENGINEER || role === ROLES.BD_ENGINEER) {
+        fcrQuery = fcrQuery.eq('created_by', user.id)
+      } else if (role === ROLES.NSM) {
+        fcrQuery = fcrQuery.eq('submitter_role', ROLES.SALES_ENGINEER)
+      } else if (role === ROLES.COMMERCIAL_AC_HEAD) {
+        fcrQuery = fcrQuery.eq('submitter_role', ROLES.BD_ENGINEER)
+      }
+
+      const { data: fcrs } = await fcrQuery.order('created_at', { ascending: false })
+
+      // Fetch accounts
+      const { data: accounts } = await supabase
+        .from('accounts')
+        .select('id')
+        .eq('created_by', user.id)
+
+      // Fetch meetings
+      const { data: meetings } = await supabase
+        .from('meetings')
+        .select('id')
+        .eq('created_by', user.id)
+
+      setStats({
+        pendingItineraries: itineraries?.filter(i => i.status === 'pending_approval').length || 0,
+        pendingFCRs: fcrs?.filter(f => f.status === 'pending_approval').length || 0,
+        totalAccounts: accounts?.length || 0,
+        totalMeetings: meetings?.length || 0,
+        myItineraries: itineraries?.length || 0,
+        myFCRs: fcrs?.length || 0,
+      })
+
+      setRecentItineraries(itineraries?.slice(0, 5) || [])
+      setRecentFCRs(fcrs?.slice(0, 5) || [])
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const getStatusBadge = (status) => {
+    const styles = {
+      draft: 'bg-gray-100 text-gray-800',
+      pending_approval: 'bg-amber-100 text-amber-800',
+      approved: 'bg-emerald-100 text-emerald-800',
+      rejected: 'bg-red-100 text-red-800',
+    }
+    const labels = {
+      draft: 'Draft',
+      pending_approval: 'Pending Approval',
+      approved: 'Approved',
+      rejected: 'Rejected',
+    }
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[status] || styles.draft}`}>
+        {labels[status] || status}
+      </span>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <p className="text-gray-500 mt-1">Welcome back, {profile?.full_name || 'User'}</p>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard 
+          icon={Calendar} 
+          label={role === ROLES.COMMERCIAL_AC_HEAD || role === ROLES.NSM ? 'Pending Itineraries' : 'My Itineraries'}
+          value={role === ROLES.COMMERCIAL_AC_HEAD || role === ROLES.NSM ? stats.pendingItineraries : stats.myItineraries}
+          color="blue"
+          link="/itinerary"
+        />
+        <StatCard 
+          icon={ClipboardCheck} 
+          label={role === ROLES.COMMERCIAL_AC_HEAD || role === ROLES.NSM ? 'Pending FCRs' : 'My FCRs'}
+          value={role === ROLES.COMMERCIAL_AC_HEAD || role === ROLES.NSM ? stats.pendingFCRs : stats.myFCRs}
+          color="amber"
+          link="/fcr"
+        />
+        <StatCard 
+          icon={Building2} 
+          label="Total Accounts" 
+          value={stats.totalAccounts}
+          color="emerald"
+          link="/accounts"
+        />
+        <StatCard 
+          icon={Users} 
+          label="Total Meetings" 
+          value={stats.totalMeetings}
+          color="purple"
+          link="/meetings"
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Itineraries */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Recent Itineraries</h3>
+            <Link to="/itinerary" className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1">
+              View All <ArrowRight size={14} />
+            </Link>
+          </div>
+          {recentItineraries.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <Calendar size={32} className="mx-auto mb-2 opacity-50" />
+              <p>No itineraries yet</p>
+              <Link to="/itinerary/new" className="text-primary-600 text-sm mt-1 inline-block">
+                Create your first itinerary
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentItineraries.map((item) => (
+                <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div>
+                    <p className="font-medium text-gray-900 text-sm">{item.title || `Itinerary - ${format(new Date(item.month), 'MMMM yyyy')}`}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {item.visits?.length || 0} visits planned
+                    </p>
+                  </div>
+                  {getStatusBadge(item.status)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Recent FCRs */}
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Recent Field Contact Reports</h3>
+            <Link to="/fcr" className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1">
+              View All <ArrowRight size={14} />
+            </Link>
+          </div>
+          {recentFCRs.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <ClipboardCheck size={32} className="mx-auto mb-2 opacity-50" />
+              <p>No FCRs yet</p>
+              <Link to="/fcr/new" className="text-primary-600 text-sm mt-1 inline-block">
+                Create your first FCR
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentFCRs.map((item) => (
+                <div key={item.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+                  <div>
+                    <p className="font-medium text-gray-900 text-sm">{item.account_name || 'Field Contact Report'}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {format(new Date(item.visit_date), 'MMM dd, yyyy')}
+                    </p>
+                  </div>
+                  {getStatusBadge(item.status)}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="card">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <QuickActionCard 
+            icon={Calendar}
+            label="New Itinerary"
+            description="Plan your monthly visits"
+            link="/itinerary/new"
+            color="blue"
+          />
+          <QuickActionCard 
+            icon={Building2}
+            label="Add Account"
+            description="Register a new prospect"
+            link="/accounts/new"
+            color="emerald"
+          />
+          <QuickActionCard 
+            icon={ClipboardCheck}
+            label="New FCR"
+            description="Submit field report"
+            link="/fcr/new"
+            color="amber"
+          />
+          <QuickActionCard 
+            icon={Users}
+            label="Schedule Meeting"
+            description="Plan a client meeting"
+            link="/meetings"
+            color="purple"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const StatCard = ({ icon: Icon, label, value, color, link }) => {
+  const colors = {
+    blue: 'bg-blue-50 text-blue-600',
+    amber: 'bg-amber-50 text-amber-600',
+    emerald: 'bg-emerald-50 text-emerald-600',
+    purple: 'bg-purple-50 text-purple-600',
+  }
+
+  return (
+    <Link to={link} className="card hover:shadow-md transition-shadow">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm text-gray-500">{label}</p>
+          <p className="text-3xl font-bold text-gray-900 mt-1">{value}</p>
+        </div>
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${colors[color]}`}>
+          <Icon size={24} />
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+const QuickActionCard = ({ icon: Icon, label, description, link, color }) => {
+  const colors = {
+    blue: 'hover:border-blue-300 hover:bg-blue-50',
+    emerald: 'hover:border-emerald-300 hover:bg-emerald-50',
+    amber: 'hover:border-amber-300 hover:bg-amber-50',
+    purple: 'hover:border-purple-300 hover:bg-purple-50',
+  }
+
+  return (
+    <Link 
+      to={link}
+      className={`flex items-center gap-3 p-4 border border-gray-200 rounded-xl transition-all ${colors[color]}`}
+    >
+      <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+        <Icon size={20} className="text-gray-600" />
+      </div>
+      <div>
+        <p className="font-medium text-gray-900 text-sm">{label}</p>
+        <p className="text-xs text-gray-500">{description}</p>
+      </div>
+    </Link>
+  )
+}
