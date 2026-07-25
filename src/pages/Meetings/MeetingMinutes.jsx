@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { 
-  Plus, 
-  FileText, 
+import {
+  Plus,
+  FileText,
   Send,
   Users,
   Calendar,
@@ -12,7 +12,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Download,
-  Copy
+  Copy,
+  Save
 } from 'lucide-react'
 import { format } from 'date-fns'
 
@@ -229,6 +230,7 @@ Date: ${format(new Date(), 'MMMM dd, yyyy')}
     try {
       const payload = {
         ...formData,
+        account_id: formData.account_id || null,
         minutes_text: generateMinutes(),
         created_by: user.id,
       }

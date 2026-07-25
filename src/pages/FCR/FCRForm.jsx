@@ -73,6 +73,7 @@ export const FCRForm = () => {
     try {
       const payload = {
         ...record,
+        account_id: record.account_id || null,
         status,
         team_type: teamType,
         created_by: user.id,
