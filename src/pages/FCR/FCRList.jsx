@@ -91,6 +91,7 @@ export const FCRList = () => {
     if (searchTerm) {
       const search = searchTerm.toLowerCase()
       return (
+        item.customer_info?.company_name?.toLowerCase().includes(search) ||
         item.account?.company_name?.toLowerCase().includes(search) ||
         item.creator?.full_name?.toLowerCase().includes(search)
       )
@@ -177,13 +178,13 @@ export const FCRList = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {item.account?.company_name || 'Field Contact Report'}
+                      {item.customer_info?.company_name || item.account?.company_name || 'Field Contact Report'}
                     </h3>
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusStyle(item.status)}`}>
                       {item.status === 'pending_approval' ? 'Pending Approval' : item.status.charAt(0).toUpperCase() + item.status.slice(1)}
                     </span>
                   </div>
-                  
+
                   <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
                     <span className="flex items-center gap-1.5">
                       <Calendar size={14} />
@@ -191,7 +192,7 @@ export const FCRList = () => {
                     </span>
                     <span className="flex items-center gap-1.5">
                       <Building2 size={14} />
-                      {item.visit_type || 'Field Visit'}
+                      {item.team_type === 'business_development' ? 'BD Report' : 'MBT Sales Report'}
                     </span>
                     {item.creator && (
                       <span className="flex items-center gap-1.5">

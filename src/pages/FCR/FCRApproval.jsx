@@ -2,16 +2,16 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ROLES, canApproveFCR } from '../../utils/roles'
-import { 
-  CheckCircle2, 
-  XCircle, 
+import { FCRFormBody } from './FCRFormBody'
+import { emptyCustomerInfo, emptyFormData } from './fcrTemplates'
+import {
+  CheckCircle2,
+  XCircle,
   ClipboardCheck,
   User,
   Clock,
   ChevronDown,
   ChevronUp,
-  MessageSquare,
-  Target,
   Building2
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
@@ -133,7 +133,7 @@ export const FCRApproval = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {item.account?.company_name || 'Field Contact Report'}
+                      {item.customer_info?.company_name || item.account?.company_name || 'Field Contact Report'}
                     </h3>
                     <span className="badge badge-pending">Pending Approval</span>
                   </div>
@@ -145,7 +145,7 @@ export const FCRApproval = () => {
                     </span>
                     <span className="flex items-center gap-1.5">
                       <Building2 size={14} />
-                      {item.visit_type?.replace('_', ' ') || 'Field Visit'}
+                      {item.team_type === 'business_development' ? 'BD Report' : 'MBT Sales Report'}
                     </span>
                     <span className="flex items-center gap-1.5">
                       <User size={14} />
@@ -168,94 +168,19 @@ export const FCRApproval = () => {
                 </div>
               </div>
 
-              {/* Expanded Details */}
+              {/* Expanded Details -- full read-only FCR, same layout as the official form */}
               {expandedId === item.id && (
-                <div className="mt-4 pt-4 border-t border-gray-200 space-y-4">
-                  {/* Attendees */}
-                  {item.attendees && item.attendees.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
-                        <User size={14} />
-                        Attendees
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {item.attendees.map((attendee, idx) => (
-                          <span key={idx} className="px-2 py-1 bg-gray-100 rounded text-sm text-gray-700">
-                            {attendee}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Discussion Points */}
-                  {item.discussion_points && item.discussion_points.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
-                        <MessageSquare size={14} />
-                        Discussion Points
-                      </h4>
-                      <div className="space-y-2">
-                        {item.discussion_points.map((point, idx) => (
-                          <div key={idx} className="bg-gray-50 rounded-lg p-3 text-sm">
-                            <p className="font-medium text-gray-900">{point.topic || `Point ${idx + 1}`}</p>
-                            <p className="text-gray-600 mt-1">{point.notes}</p>
-                            {point.outcome && (
-                              <p className="text-emerald-600 mt-1 text-xs">
-                                <span className="font-medium">Outcome:</span> {point.outcome}
-                              </p>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Action Items */}
-                  {item.action_items && item.action_items.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-semibold text-gray-900 mb-2 flex items-center gap-1.5">
-                        <Target size={14} />
-                        Action Items
-                      </h4>
-                      <div className="space-y-2">
-                        {item.action_items.map((action, idx) => (
-                          <div key={idx} className="flex items-center justify-between bg-gray-50 rounded-lg p-3 text-sm">
-                            <div>
-                              <p className="font-medium text-gray-900">{action.task}</p>
-                              <p className="text-gray-500 text-xs mt-0.5">
-                                Assigned to: {action.assigned_to || 'Unassigned'}
-                                {action.due_date && ` | Due: ${format(parseISO(action.due_date), 'MMM dd, yyyy')}`}
-                              </p>
-                            </div>
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                              action.status === 'completed' ? 'bg-emerald-100 text-emerald-700' :
-                              action.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
-                              'bg-gray-100 text-gray-700'
-                            }`}>
-                              {action.status?.replace('_', ' ') || 'Pending'}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {item.next_steps && (
-                    <div className="p-3 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-blue-800">
-                        <span className="font-medium">Next Steps:</span> {item.next_steps}
-                      </p>
-                    </div>
-                  )}
-
-                  {item.notes && (
-                    <div className="p-3 bg-gray-50 rounded-lg">
-                      <p className="text-sm text-gray-700">
-                        <span className="font-medium">Additional Notes:</span> {item.notes}
-                      </p>
-                    </div>
-                  )}
+                <div className="mt-4 pt-4 border-t border-gray-200">
+                  <FCRFormBody
+                    record={{
+                      ...item,
+                      customer_info: { ...emptyCustomerInfo(), ...(item.customer_info || {}) },
+                      form_data: { ...emptyFormData(item.team_type || 'mbt_sales'), ...(item.form_data || {}) },
+                    }}
+                    onChange={() => {}}
+                    teamType={item.team_type || 'mbt_sales'}
+                    readOnly
+                  />
                 </div>
               )}
 
