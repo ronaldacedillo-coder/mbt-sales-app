@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ROLES, getApproverRole } from '../../utils/roles'
+import { MonthCalendar } from './MonthCalendar'
+import { downloadMCPWorkbook } from '../../lib/mcpExcel'
+import { downloadMCPPdf } from '../../lib/mcpPdf'
 import {
   ArrowLeft,
   Plus,
@@ -14,7 +17,11 @@ import {
   Save,
   Send,
   AlertCircle,
-  ClipboardCheck
+  ClipboardCheck,
+  FileText,
+  List,
+  CalendarDays,
+  FileSpreadsheet
 } from 'lucide-react'
 import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns'
 
@@ -35,6 +42,9 @@ export const ItineraryForm = () => {
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [view, setView] = useState('calendar')
+  const [exportingExcel, setExportingExcel] = useState(false)
+  const [exportingPdf, setExportingPdf] = useState(false)
 
   useEffect(() => {
     fetchAccounts()
@@ -54,7 +64,11 @@ export const ItineraryForm = () => {
     try {
       const { data, error } = await supabase
         .from('itineraries')
-        .select('*')
+        .select(`
+          *,
+          creator:user_profiles!itineraries_created_by_fkey(full_name:name),
+          approver:user_profiles!itineraries_approved_by_fkey(full_name:name)
+        `)
         .eq('id', id)
         .single()
       if (error) throw error
@@ -73,19 +87,41 @@ export const ItineraryForm = () => {
     }
   }
 
-  const addVisit = () => {
+  const addVisit = (prefillDate = '') => {
+    const newId = crypto.randomUUID()
     setFormData(prev => ({
       ...prev,
       visits: [...prev.visits, {
-        id: crypto.randomUUID(),
+        id: newId,
         account_id: '',
-        visit_date: '',
+        visit_date: prefillDate,
+        period: 'AM',
         purpose: '',
         estimated_duration: '',
         location: '',
         notes: ''
       }]
     }))
+    return newId
+  }
+
+  // Clicking a day in the calendar view adds a visit pre-filled with that
+  // date and switches to the List view so the SE can fill in the rest.
+  const addVisitFromCalendar = (dateStr) => {
+    const newId = addVisit(dateStr)
+    setView('list')
+    setTimeout(() => {
+      document.getElementById(`visit-${newId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 50)
+  }
+
+  // Clicking an existing visit chip in the calendar jumps to its card in
+  // the List view instead of duplicating the edit UI inside the grid.
+  const selectVisitFromCalendar = (visitId) => {
+    setView('list')
+    setTimeout(() => {
+      document.getElementById(`visit-${visitId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 50)
   }
 
   const updateVisit = (index, field, value) => {
@@ -155,16 +191,54 @@ export const ItineraryForm = () => {
     )
   }
 
+  const accountName = (accountId) => accounts.find(a => a.id === accountId)?.company_name || 'Unassigned account'
+
+  const handleExportExcel = async () => {
+    setExportingExcel(true)
+    try {
+      await downloadMCPWorkbook({
+        itinerary: formData,
+        visits: formData.visits,
+        accounts,
+        submitterName: formData.creator?.full_name || profile?.full_name,
+        approverName: formData.approver?.full_name,
+      })
+    } catch (err) {
+      console.error('Failed to export MCP Excel:', err)
+      setError('Failed to generate the Excel file')
+    } finally {
+      setExportingExcel(false)
+    }
+  }
+
+  const handleExportPdf = async () => {
+    setExportingPdf(true)
+    try {
+      await downloadMCPPdf({
+        itinerary: formData,
+        visits: formData.visits,
+        accounts,
+        submitterName: formData.creator?.full_name || profile?.full_name,
+        approverName: formData.approver?.full_name,
+      })
+    } catch (err) {
+      console.error('Failed to export MCP PDF:', err)
+      setError('Failed to generate the PDF file')
+    } finally {
+      setExportingPdf(false)
+    }
+  }
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <button 
+        <button
           onClick={() => navigate('/itinerary')}
           className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
         >
           <ArrowLeft size={20} />
         </button>
-        <div>
+        <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">
             {isEdit ? 'Edit Itinerary' : 'New Itinerary'}
           </h1>
@@ -172,6 +246,26 @@ export const ItineraryForm = () => {
             {isEdit ? 'Update your monthly schedule' : 'Plan your monthly visits'}
           </p>
         </div>
+        {isEdit && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleExportExcel}
+              disabled={exportingExcel}
+              className="btn-secondary flex items-center gap-2"
+              title="Downloads an .xlsx in MBT's official Monthly Coverage Plan (MCP) format"
+            >
+              <FileSpreadsheet size={16} /> {exportingExcel ? 'Exporting...' : 'Export MCP (Excel)'}
+            </button>
+            <button
+              onClick={handleExportPdf}
+              disabled={exportingPdf}
+              className="btn-secondary flex items-center gap-2"
+              title="Downloads a .pdf in MBT's official Monthly Coverage Plan (MCP) format"
+            >
+              <FileText size={16} /> {exportingPdf ? 'Exporting...' : 'Export MCP (PDF)'}
+            </button>
+          </div>
+        )}
       </div>
 
       {error && (
@@ -216,12 +310,47 @@ export const ItineraryForm = () => {
         </div>
       </div>
 
-      {/* Visits Section */}
-      <div className="card">
+      {/* View toggle */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setView('calendar')}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors ${
+            view === 'calendar' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+          }`}
+        >
+          <CalendarDays size={15} /> Calendar
+        </button>
+        <button
+          onClick={() => setView('list')}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium flex items-center gap-1.5 transition-colors ${
+            view === 'list' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
+          }`}
+        >
+          <List size={15} /> List
+        </button>
+      </div>
+
+      {/* Calendar view (on-screen browsing only -- print uses the MCP grid above) */}
+      <div className={`card ${view === 'calendar' ? '' : 'hidden'}`}>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          {formData.month ? format(parseISO(formData.month), 'MMMM yyyy') : 'Calendar'}
+        </h3>
+        <MonthCalendar
+          month={formData.month || format(new Date(), 'yyyy-MM-dd')}
+          visits={formData.visits}
+          accounts={accounts}
+          editable
+          onDayClick={addVisitFromCalendar}
+          onSelectVisit={selectVisitFromCalendar}
+        />
+      </div>
+
+      {/* List (edit) view */}
+      <div className={`card ${view === 'list' ? '' : 'hidden'}`}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Planned Visits</h3>
           <button
-            onClick={addVisit}
+            onClick={() => addVisit()}
             className="btn-secondary flex items-center gap-2 text-sm"
           >
             <Plus size={16} />
@@ -233,14 +362,14 @@ export const ItineraryForm = () => {
           <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
             <MapPin size={32} className="mx-auto text-gray-300 mb-2" />
             <p className="text-gray-500 text-sm">No visits planned yet</p>
-            <button onClick={addVisit} className="text-primary-600 text-sm mt-1 hover:underline">
+            <button onClick={() => addVisit()} className="text-primary-600 text-sm mt-1 hover:underline">
               Add your first visit
             </button>
           </div>
         ) : (
           <div className="space-y-4">
             {formData.visits.map((visit, index) => (
-              <div key={visit.id} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+              <div key={visit.id} id={`visit-${visit.id}`} className="border border-gray-200 rounded-lg p-4 bg-gray-50 scroll-mt-20">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium text-gray-900 text-sm">Visit #{index + 1}</h4>
                   <div className="flex items-center gap-1">
@@ -289,6 +418,24 @@ export const ItineraryForm = () => {
                       onChange={(e) => updateVisit(index, 'visit_date', e.target.value)}
                       className="input text-sm"
                     />
+                  </div>
+
+                  <div>
+                    <label className="label text-xs">AM / PM</label>
+                    <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+                      {['AM', 'PM'].map(p => (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => updateVisit(index, 'period', p)}
+                          className={`flex-1 py-2 font-medium transition-colors ${
+                            (visit.period || 'AM') === p ? 'bg-primary-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+                          }`}
+                        >
+                          {p}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   <div>
