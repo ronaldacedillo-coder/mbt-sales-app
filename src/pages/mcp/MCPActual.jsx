@@ -88,7 +88,7 @@ export const MCPActual = () => {
           <h1 className="text-2xl font-bold text-gray-900">MCP (Actual)</h1>
           <p className="text-gray-500 mt-1">What actually happened -- built from your acknowledged Field Contact Reports</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <input
             type="month"
             value={format(parseISO(month), 'yyyy-MM')}

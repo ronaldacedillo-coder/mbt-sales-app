@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
-import { Bell, User, LogOut } from 'lucide-react'
+import { Bell, User, LogOut, Menu } from 'lucide-react'
 import { ROLE_LABELS, ROLES } from '../utils/roles'
 
 const APPROVER_ROLES = [ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD]
 
-export const Navbar = () => {
+export const Navbar = ({ onMenuClick = () => {} }) => {
   const { profile, role, user, signOut } = useAuth()
   const navigate = useNavigate()
   const [alertCount, setAlertCount] = useState(0)
@@ -58,9 +58,18 @@ export const Navbar = () => {
   }, [user, role])
 
   return (
-    <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-6 sticky top-0 z-10 print:hidden">
-      <h2 className="text-lg font-semibold text-gray-800">MBT Sales Operations</h2>
-      <div className="flex items-center gap-4">
+    <header className="bg-white border-b border-gray-200 h-16 flex items-center justify-between px-3 sm:px-6 gap-2 sticky top-0 z-10 print:hidden">
+      <div className="flex items-center gap-2 min-w-0">
+        <button
+          onClick={onMenuClick}
+          className="lg:hidden -ml-1 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
+          aria-label="Open menu"
+        >
+          <Menu size={20} />
+        </button>
+        <h2 className="text-base sm:text-lg font-semibold text-gray-800 truncate">MBT Sales Operations</h2>
+      </div>
+      <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
         <button
           onClick={() => navigate(alertTarget)}
           className="relative p-2 text-gray-500 hover:text-gray-700 transition-colors"
@@ -73,15 +82,15 @@ export const Navbar = () => {
             </span>
           )}
         </button>
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <div className="w-8 h-8 bg-primary-100 rounded-full flex items-center justify-center flex-shrink-0">
             <User size={16} className="text-primary-600" />
           </div>
-          <div className="text-right">
+          <div className="text-right hidden sm:block">
             <p className="text-sm font-medium text-gray-900">{profile?.full_name || 'User'}</p>
             <p className="text-xs text-gray-500">{ROLE_LABELS[profile?.role] || ''}</p>
           </div>
-          <button 
+          <button
             onClick={signOut}
             className="p-2 text-gray-500 hover:text-red-600 transition-colors"
             title="Sign Out"

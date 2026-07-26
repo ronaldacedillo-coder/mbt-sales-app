@@ -186,7 +186,7 @@ export const FCRApproval = () => {
               )}
 
               {/* Action Buttons */}
-              <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-end gap-3">
+              <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-center justify-end gap-3">
                 <button
                   onClick={() => handleReject(item.id)}
                   disabled={processing === item.id}

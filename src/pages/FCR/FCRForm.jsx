@@ -203,33 +203,37 @@ export const FCRForm = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
-        <button onClick={() => navigate('/fcr')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors print:hidden">
-          <ArrowLeft size={20} />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {isEdit ? 'Field Contact Report' : 'New Field Contact Report'}
-          </h1>
-          <p className="text-gray-500 text-sm">
-            {teamType === 'business_development' ? 'FIELD CONTACT REPORT - BD' : 'FIELD CONTACT REPORT - MBT SALES'}
-          </p>
-        </div>
-        {readOnly && (
-          <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
-            <Lock size={12} /> Read-only ({record.status.replace('_', ' ')})
-          </span>
-        )}
-        {isEdit && (
-          <button
-            onClick={handleExportPdf}
-            disabled={exportingPdf || record.ack_status !== 'acknowledged'}
-            className="ml-auto btn-secondary flex items-center gap-2 print:hidden disabled:opacity-40 disabled:cursor-not-allowed"
-            title={record.ack_status === 'acknowledged' ? 'Downloads a PDF of this FCR' : 'The account must acknowledge the meeting minutes before this FCR can be exported'}
-          >
-            <FileText size={16} /> {exportingPdf ? 'Exporting...' : 'Export PDF'}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-4">
+          <button onClick={() => navigate('/fcr')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors print:hidden flex-shrink-0">
+            <ArrowLeft size={20} />
           </button>
-        )}
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold text-gray-900">
+              {isEdit ? 'Field Contact Report' : 'New Field Contact Report'}
+            </h1>
+            <p className="text-gray-500 text-sm">
+              {teamType === 'business_development' ? 'FIELD CONTACT REPORT - BD' : 'FIELD CONTACT REPORT - MBT SALES'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap sm:ml-auto">
+          {readOnly && (
+            <span className="flex items-center gap-1.5 text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full">
+              <Lock size={12} /> Read-only ({record.status.replace('_', ' ')})
+            </span>
+          )}
+          {isEdit && (
+            <button
+              onClick={handleExportPdf}
+              disabled={exportingPdf || record.ack_status !== 'acknowledged'}
+              className="btn-secondary flex items-center gap-2 print:hidden disabled:opacity-40 disabled:cursor-not-allowed"
+              title={record.ack_status === 'acknowledged' ? 'Downloads a PDF of this FCR' : 'The account must acknowledge the meeting minutes before this FCR can be exported'}
+            >
+              <FileText size={16} /> {exportingPdf ? 'Exporting...' : 'Export PDF'}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (
@@ -304,7 +308,7 @@ export const FCRForm = () => {
       )}
 
       {!readOnly && (
-        <div className="flex items-center justify-end gap-3 print:hidden">
+        <div className="flex flex-wrap items-center justify-end gap-3 print:hidden">
           <button onClick={() => navigate('/fcr')} className="btn-secondary">Cancel</button>
           <button onClick={() => handleSave('draft')} disabled={saving} className="btn-secondary flex items-center gap-2">
             <Save size={16} />

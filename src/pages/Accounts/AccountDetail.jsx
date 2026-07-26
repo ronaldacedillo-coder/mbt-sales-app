@@ -121,23 +121,25 @@ export const AccountDetail = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
-      <div className="flex items-center gap-4">
-        <button onClick={() => navigate('/accounts')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-          <ArrowLeft size={20} />
-        </button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold text-gray-900">{account.company_name}</h1>
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(account.priority)}`}>
-              {account.priority ? account.priority.charAt(0).toUpperCase() + account.priority.slice(1) : 'Normal'} Priority
-            </span>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-4 min-w-0">
+          <button onClick={() => navigate('/accounts')} className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0">
+            <ArrowLeft size={20} />
+          </button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="text-2xl font-bold text-gray-900 truncate">{account.company_name}</h1>
+              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(account.priority)}`}>
+                {account.priority ? account.priority.charAt(0).toUpperCase() + account.priority.slice(1) : 'Normal'} Priority
+              </span>
+            </div>
+            <p className="text-gray-500 text-sm mt-0.5">
+              {[account.industry, account.city, account.country].filter(Boolean).join(' · ') || 'No details yet'}
+            </p>
           </div>
-          <p className="text-gray-500 text-sm mt-0.5">
-            {[account.industry, account.city, account.country].filter(Boolean).join(' · ') || 'No details yet'}
-          </p>
         </div>
         {canEdit && (
-          <Link to={`/accounts/${id}/edit`} className="btn-secondary flex items-center gap-2">
+          <Link to={`/accounts/${id}/edit`} className="btn-secondary flex items-center justify-center gap-2 self-start sm:ml-auto">
             <Pencil size={16} /> Edit
           </Link>
         )}

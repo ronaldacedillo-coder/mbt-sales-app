@@ -115,12 +115,12 @@ export const FCRList = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Field Contact Reports</h1>
           <p className="text-gray-500 mt-1">Manage field visit reports</p>
         </div>
-        <Link to="/fcr/new" className="btn-primary flex items-center gap-2">
+        <Link to="/fcr/new" className="btn-primary flex items-center justify-center gap-2 self-start">
           <Plus size={18} />
           New FCR
         </Link>
@@ -138,7 +138,7 @@ export const FCRList = () => {
             className="input pl-10"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {['all', 'draft', 'pending_approval', 'approved', 'rejected'].map((status) => (
             <button
               key={status}
@@ -174,9 +174,9 @@ export const FCRList = () => {
         <div className="space-y-3">
           {filteredFCRs.map((item) => (
             <div key={item.id} className="card hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-2 flex-wrap">
                     <h3 className="text-lg font-semibold text-gray-900">
                       {item.customer_info?.company_name || item.account?.company_name || 'Field Contact Report'}
                     </h3>
@@ -220,7 +220,7 @@ export const FCRList = () => {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 ml-4">
+                <div className="flex items-center gap-2 sm:ml-4">
                   {canApprove(item) && (
                     <>
                       <button

@@ -700,7 +700,7 @@ export const AccountForm = () => {
         </div>
 
         {/* Submit */}
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <button
             type="button"
             onClick={() => navigate(isEdit ? `/accounts/${id}` : '/accounts')}

@@ -435,7 +435,7 @@ export const ItineraryForm = () => {
       </div>
 
       {/* Action Buttons */}
-      <div className="flex items-center justify-end gap-3">
+      <div className="flex flex-wrap items-center justify-end gap-3">
         <button
           onClick={() => navigate('/itinerary')}
           className="btn-secondary"

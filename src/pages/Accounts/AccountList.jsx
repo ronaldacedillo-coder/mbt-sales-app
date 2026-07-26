@@ -68,12 +68,12 @@ export const AccountList = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Accounts</h1>
           <p className="text-gray-500 mt-1">Manage your prospect accounts</p>
         </div>
-        <Link to="/accounts/new" className="btn-primary flex items-center gap-2">
+        <Link to="/accounts/new" className="btn-primary flex items-center justify-center gap-2 self-start">
           <Plus size={18} />
           Add Account
         </Link>
@@ -91,7 +91,7 @@ export const AccountList = () => {
             className="input pl-10"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {['all', 'high', 'medium', 'low'].map((priority) => (
             <button
               key={priority}

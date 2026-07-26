@@ -36,7 +36,8 @@ export const MonthCalendar = ({ month, visits = [], accounts = [], onDayClick, o
   })
 
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden print:border-black">
+    <div className="border border-gray-200 rounded-lg overflow-x-auto print:border-black print:overflow-visible">
+      <div className="min-w-[560px] sm:min-w-0">
       <div className="grid grid-cols-7 bg-gray-50 print:bg-white">
         {WEEKDAYS.map(wd => (
           <div key={wd} className="px-2 py-2 text-xs font-semibold text-gray-500 text-center border-b border-gray-200 print:border-black print:text-black">
@@ -53,7 +54,7 @@ export const MonthCalendar = ({ month, visits = [], accounts = [], onDayClick, o
             <div
               key={dateStr}
               onClick={() => editable && onDayClick && onDayClick(dateStr)}
-              className={`min-h-[92px] border-b border-r border-gray-100 print:border-black p-1.5 align-top ${
+              className={`min-h-[76px] sm:min-h-[92px] border-b border-r border-gray-100 print:border-black p-1.5 align-top ${
                 inMonth ? 'bg-white' : 'bg-gray-50 print:bg-white'
               } ${editable ? 'cursor-pointer hover:bg-primary-50/40' : ''}`}
             >
@@ -96,6 +97,7 @@ export const MonthCalendar = ({ month, visits = [], accounts = [], onDayClick, o
             </div>
           )
         })}
+      </div>
       </div>
     </div>
   )

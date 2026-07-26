@@ -131,7 +131,7 @@ export const WeeklyReportDownload = () => {
       )}
 
       <div className="card space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h2 className="font-semibold text-gray-900">Ready to download</h2>
             <p className="text-sm text-gray-500 mt-0.5">
@@ -141,14 +141,14 @@ export const WeeklyReportDownload = () => {
           <button
             onClick={handleDownload}
             disabled={downloading || hasNothingToDownload}
-            className="btn-primary flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="btn-primary flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed self-start"
           >
             <Download size={16} />
             {downloading ? 'Building ZIP...' : 'Download All (.zip)'}
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 pt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
           <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg">
             <p className="text-2xl font-bold text-emerald-700">{acknowledgedFcrs.length}</p>
             <p className="text-xs text-emerald-700 mt-0.5">Acknowledged FCRs</p>

@@ -121,12 +121,12 @@ export const ItineraryList = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">MCP (Plan)</h1>
           <p className="text-gray-500 mt-1">Monthly Coverage Plan -- propose and get approval for your visit schedule</p>
         </div>
-        <Link to="/itinerary/new" className="btn-primary flex items-center gap-2">
+        <Link to="/itinerary/new" className="btn-primary flex items-center justify-center gap-2 self-start">
           <Plus size={18} />
           New MCP (Plan)
         </Link>
@@ -144,7 +144,7 @@ export const ItineraryList = () => {
             className="input pl-10"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {['all', 'draft', 'pending_approval', 'approved', 'rejected'].map((status) => (
             <button
               key={status}
@@ -180,9 +180,9 @@ export const ItineraryList = () => {
         <div className="space-y-3">
           {filteredItineraries.map((item) => (
             <div key={item.id} className="card hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-3 mb-2 flex-wrap">
                     <h3 className="text-lg font-semibold text-gray-900">
                       {item.title || `MCP (Plan) - ${format(parseISO(item.month), 'MMMM yyyy')}`}
                     </h3>
@@ -191,8 +191,8 @@ export const ItineraryList = () => {
                       {item.status === 'pending_approval' ? 'Pending Approval' : item.status.charAt(0).toUpperCase() + item.status.slice(1)}
                     </span>
                   </div>
-                  
-                  <div className="flex items-center gap-6 text-sm text-gray-500">
+
+                  <div className="flex flex-wrap items-center gap-x-6 gap-y-1.5 text-sm text-gray-500">
                     <span className="flex items-center gap-1.5">
                       <Calendar size={14} />
                       {format(parseISO(item.month), 'MMMM yyyy')}
@@ -218,7 +218,7 @@ export const ItineraryList = () => {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2 ml-4">
+                <div className="flex items-center gap-2 sm:ml-4">
                   {canApprove(item) && (
                     <>
                       <button

@@ -109,7 +109,7 @@ export const MCPArchive = () => {
       ) : (
         <div className="space-y-3">
           {entries.map((entry) => (
-            <div key={entry.id} className="card flex items-center justify-between">
+            <div key={entry.id} className="card flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <p className="font-semibold text-gray-900">
                   {format(parseISO(entry.month), 'MMMM yyyy')}
