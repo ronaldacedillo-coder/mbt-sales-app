@@ -17,6 +17,7 @@ export const AcknowledgeFCR = () => {
   const [details, setDetails] = useState(null)
   const [name, setName] = useState('')
   const [editingName, setEditingName] = useState(false)
+  const [comment, setComment] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [justAcknowledged, setJustAcknowledged] = useState(false)
@@ -39,13 +40,18 @@ export const AcknowledgeFCR = () => {
 
   // One click confirms -- the attendee's name is already on file from the
   // FCR (the SE/BD entered it when logging the visit), so there's nothing
-  // to type unless it needs correcting.
+  // to type unless it needs correcting. The comment is entirely optional --
+  // acknowledging works with or without one.
   const handleAcknowledge = async () => {
     if (!name.trim()) return
     setSubmitting(true)
     setError('')
     try {
-      const { data, error } = await supabase.rpc('acknowledge_fcr', { p_token: token, p_name: name.trim() })
+      const { data, error } = await supabase.rpc('acknowledge_fcr', {
+        p_token: token,
+        p_name: name.trim(),
+        p_comment: comment.trim() || null,
+      })
       if (error) throw error
       if (!data) {
         setError('This link has already been used or is no longer active.')
@@ -132,6 +138,14 @@ export const AcknowledgeFCR = () => {
                   Confirmed{details.acknowledged_name || justAcknowledged ? ` by ${justAcknowledged ? name : details.acknowledged_name}` : ''}
                 </p>
                 <p className="text-xs text-emerald-700 mt-0.5">Thank you -- no further action is needed. You may close this page.</p>
+                {(justAcknowledged ? comment.trim() : details.acknowledged_comment) && (
+                  <div className="mt-2 pt-2 border-t border-emerald-200">
+                    <p className="text-xs font-medium text-emerald-800">Your comment:</p>
+                    <p className="text-xs text-emerald-700 mt-0.5 whitespace-pre-wrap">
+                      {justAcknowledged ? comment.trim() : details.acknowledged_comment}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -156,6 +170,15 @@ export const AcknowledgeFCR = () => {
                   </button>
                 </p>
               )}
+              <div>
+                <label className="label">Comment (optional)</label>
+                <textarea
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                  className="input min-h-[80px] resize-y"
+                  placeholder="Anything to add or correct about the visit? (optional)"
+                />
+              </div>
               <button
                 onClick={handleAcknowledge}
                 disabled={!name.trim() || submitting}

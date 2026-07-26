@@ -173,7 +173,7 @@ export const FCRForm = () => {
     try {
       const { data, error } = await supabase
         .from('fcrs')
-        .select('ack_status, acknowledged_at, acknowledged_name, status')
+        .select('ack_status, acknowledged_at, acknowledged_name, acknowledged_comment, status')
         .eq('id', id)
         .single()
       if (error) throw error
@@ -272,11 +272,19 @@ export const FCRForm = () => {
           <h3 className="text-sm font-semibold text-gray-900 mb-3">Account Acknowledgment</h3>
           <div className="flex flex-wrap items-center gap-3">
             {record.ack_status === 'acknowledged' ? (
-              <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
-                <CheckCircle2 size={14} />
-                Acknowledged by {record.acknowledged_name || 'the account'}
-                {record.acknowledged_at && ` on ${format(new Date(record.acknowledged_at), 'MMM dd, yyyy')}`}
-              </span>
+              <div className="w-full space-y-2">
+                <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full w-fit">
+                  <CheckCircle2 size={14} />
+                  Acknowledged by {record.acknowledged_name || 'the account'}
+                  {record.acknowledged_at && ` on ${format(new Date(record.acknowledged_at), 'MMM dd, yyyy')}`}
+                </span>
+                {record.acknowledged_comment && (
+                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <p className="text-xs font-medium text-gray-500 mb-1">Attendee's comment</p>
+                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{record.acknowledged_comment}</p>
+                  </div>
+                )}
+              </div>
             ) : record.ack_status === 'pending' ? (
               <span className="flex items-center gap-1.5 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-full">
                 <Clock3 size={14} />
