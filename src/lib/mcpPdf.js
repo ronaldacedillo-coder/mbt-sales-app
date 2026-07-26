@@ -9,7 +9,10 @@ import { getMCPWeeks, groupVisitsByDayPeriod } from './mcpWeeks'
 // Only MCP (Actual) exports a PDF (MCP (Plan) is approve-only) -- this is
 // generic enough to serve that one caller while still reading naturally as
 // "the MCP PDF builder" rather than something Actual-specific.
-export const downloadMCPPdf = async ({
+//
+// buildMCPDoc does the actual work without downloading anything; downloadMCPPdf
+// and getMCPPdfBlob (used by the weekly report ZIP bundler) both wrap it.
+const buildMCPDoc = async ({
   month,
   notes,
   visits,
@@ -109,5 +112,17 @@ export const downloadMCPPdf = async ({
   doc.text('SUBMITTED BY', leftX, y + 16)
   doc.text('REVIEWED & APPROVED BY', rightX, y + 16)
 
-  doc.save(`${filenamePrefix} - ${format(monthDate, 'MMMM yyyy')}.pdf`)
+  return { doc, filename: `${filenamePrefix} - ${format(monthDate, 'MMMM yyyy')}.pdf` }
+}
+
+export const downloadMCPPdf = async (args) => {
+  const { doc, filename } = await buildMCPDoc(args)
+  doc.save(filename)
+}
+
+// Same PDF, returned as a Blob instead of downloaded -- used to bundle
+// several MCP (Actual) snapshots into one ZIP (see weeklyReportZip.js).
+export const getMCPPdfBlob = async (args) => {
+  const { doc, filename } = await buildMCPDoc(args)
+  return { blob: doc.output('blob'), filename }
 }

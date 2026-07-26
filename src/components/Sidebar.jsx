@@ -11,7 +11,8 @@ import {
   ClipboardCheck,
   CheckCircle2,
   ChevronRight,
-  ArrowLeftRight
+  ArrowLeftRight,
+  Download
 } from 'lucide-react'
 import { ROLES } from '../utils/roles'
 
@@ -59,6 +60,7 @@ export const Sidebar = () => {
     { path: '/mcp-archive', label: 'MCP Archive', icon: Archive, roles: [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD] },
     { path: '/fcr/approval', label: 'FCR Approvals', icon: CheckCircle2, roles: APPROVER_ROLES, badge: pendingFCRs },
     { path: '/itinerary/approval', label: 'MCP (Plan) Approvals', icon: CheckCircle2, roles: APPROVER_ROLES, badge: pendingItineraries },
+    { path: '/reports/weekly', label: 'Weekly Report Download', icon: Download, roles: APPROVER_ROLES },
   ]
 
   const filteredNav = navItems.filter(item => item.roles.includes(role))

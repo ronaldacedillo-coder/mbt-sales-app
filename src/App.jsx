@@ -16,6 +16,7 @@ import { FCRApproval } from './pages/FCR/FCRApproval'
 import { AcknowledgeFCR } from './pages/Acknowledge/AcknowledgeFCR'
 import { MCPActual } from './pages/mcp/MCPActual'
 import { MCPArchive } from './pages/mcp/MCPArchive'
+import { WeeklyReportDownload } from './pages/Reports/WeeklyReportDownload'
 import { ROLES } from './utils/roles'
 
 function App() {
@@ -65,6 +66,12 @@ function App() {
         
         <Route path="/mcp-actual" element={<MCPActual />} />
         <Route path="/mcp-archive" element={<MCPArchive />} />
+
+        <Route path="/reports/weekly" element={
+          <ProtectedRoute allowedRoles={[ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD]}>
+            <WeeklyReportDownload />
+          </ProtectedRoute>
+        } />
 
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Route>

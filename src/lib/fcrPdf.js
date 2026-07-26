@@ -2,11 +2,14 @@ import { format, parseISO } from 'date-fns'
 import { TRADE_TERMS_LABELS } from '../utils/accounts'
 import { buildFcrMinutesText } from './fcrMinutes'
 
-// Generates and downloads a real .pdf of a Field Contact Report. Only ever
-// called once the account has acknowledged the meeting minutes (see the
-// gating in FCRForm.jsx) -- the acknowledgment block below is part of the
-// exported record precisely so the PDF itself is proof of that.
-export const downloadFCRPdf = async ({ record, account, submitterName }) => {
+// Builds the PDF document itself without triggering a download -- shared by
+// downloadFCRPdf (single-file, used from the FCR page) and getFCRPdfBlob
+// (used by the weekly report ZIP bundler, which needs the raw bytes instead
+// of a browser download per file). Only ever called once the account has
+// acknowledged the meeting minutes (see the gating in FCRForm.jsx) -- the
+// acknowledgment block below is part of the exported record precisely so
+// the PDF itself is proof of that.
+const buildFCRDoc = async ({ record, account, submitterName }) => {
   const [{ jsPDF: JsPDF }, autoTableModule] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -228,5 +231,18 @@ export const downloadFCRPdf = async ({ record, account, submitterName }) => {
   // format: the name of the SE/BD who filed it, plus the visit date.
   const nameSlug = (submitterName || 'Report').replace(/[^a-z0-9]+/gi, '_')
   const dateSlug = record.visit_date || format(new Date(), 'yyyy-MM-dd')
-  doc.save(`FCR_${nameSlug}_${dateSlug}.pdf`)
+  return { doc, filename: `FCR_${nameSlug}_${dateSlug}.pdf` }
+}
+
+export const downloadFCRPdf = async (args) => {
+  const { doc, filename } = await buildFCRDoc(args)
+  doc.save(filename)
+}
+
+// Same PDF, returned as a Blob instead of downloaded -- used to bundle
+// several FCRs into one ZIP (see weeklyReportZip.js) without popping open a
+// separate browser download per file.
+export const getFCRPdfBlob = async (args) => {
+  const { doc, filename } = await buildFCRDoc(args)
+  return { blob: doc.output('blob'), filename }
 }
