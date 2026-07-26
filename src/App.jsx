@@ -51,11 +51,7 @@ function App() {
         } />
         
         <Route path="/accounts" element={<AccountList />} />
-        <Route path="/accounts/new" element={
-          <ProtectedRoute allowedRoles={[ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.COMMERCIAL_AC_HEAD]}>
-            <AccountForm />
-          </ProtectedRoute>
-        } />
+        <Route path="/accounts/new" element={<AccountForm />} />
         <Route path="/accounts/:id" element={<AccountDetail />} />
         <Route path="/accounts/:id/edit" element={<AccountForm />} />
 

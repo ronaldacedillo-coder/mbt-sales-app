@@ -36,11 +36,11 @@ export const TEAM_TYPES = {
 export const canCreateItinerary = (role) =>
   [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM].includes(role)
 
-// The NSM's job in this app is reviewing/approving MCP (Plan) and FCR
-// submissions from the SE team (plus filing their own MCP (Plan)) -- they
-// don't make field visits or own accounts themselves, so they don't create
-// Accounts or FCRs. Everyone else is unaffected.
-export const canCreateAccount = (role) => role !== ROLES.NSM
+// The NSM profiles accounts and assigns them to a Sales Engineer on their
+// team (see the ASE/TSE dropdown in AccountForm), so Account creation is
+// open to everyone. FCRs stay SE/BD/Head-only -- the NSM doesn't make
+// field visits themselves, only reviews/approves the ones SE files.
+export const canCreateAccount = () => true
 
 export const canCreateFCR = (role) => role !== ROLES.NSM
 

@@ -147,10 +147,25 @@ export const AccountForm = () => {
   const [error, setError] = useState('')
   const [generatingRecommendation, setGeneratingRecommendation] = useState(false)
   const [possibleDuplicates, setPossibleDuplicates] = useState([])
+  const [salesEngineers, setSalesEngineers] = useState([])
 
   useEffect(() => {
     if (isEdit) fetchAccount()
+    fetchSalesEngineers()
   }, [id])
+
+  // ASE/TSE assigns the account to whoever will actually cover it in the
+  // field -- role 'se' is the short code MBT Project Pipeline stores for
+  // Sales Engineer (see PIPELINE_ROLE_MAP in utils/roles.js), which is what
+  // this shared user_profiles table uses regardless of which app you're in.
+  const fetchSalesEngineers = async () => {
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('id, name')
+      .eq('role', 'se')
+      .order('name')
+    setSalesEngineers(data || [])
+  }
 
   const fetchAccount = async () => {
     setLoading(true)
@@ -585,13 +600,22 @@ export const AccountForm = () => {
             </div>
             <div>
               <label className="label">ASE / TSE</label>
-              <input
-                type="text"
+              <select
                 value={formData.ase_tse}
                 onChange={(e) => handleChange('ase_tse', e.target.value)}
                 className="input"
-                placeholder="Assigned ASE / TSE"
-              />
+              >
+                <option value="">Assign a Sales Engineer</option>
+                {/* Keeps a previously-set value visible even if it doesn't match
+                    a current Sales Engineer (renamed, deactivated, or set before
+                    this became a dropdown) instead of silently blanking it out. */}
+                {formData.ase_tse && !salesEngineers.some(se => se.name === formData.ase_tse) && (
+                  <option value={formData.ase_tse}>{formData.ase_tse}</option>
+                )}
+                {salesEngineers.map(se => (
+                  <option key={se.id} value={se.name}>{se.name}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="label">Visit Freq / Days</label>
