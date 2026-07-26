@@ -80,6 +80,13 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAccount])
 
+  // Pipeline's "Spec-in" flag (whether Midea is in the project's approved
+  // brand list) counts as spec'd-in whether it's a plain "Yes" or one of the
+  // two Midea-included variants used in the field.
+  const SPECIN_VALUES = ['yes', 'exclusive midea', 'midea included in approved brands']
+  const isSpecIn = (specin) => SPECIN_VALUES.includes((specin || '').trim().toLowerCase())
+  const isBidding = (status) => (status || '').toLowerCase().includes('bidding')
+
   const importPipelineProject = (p) => {
     const money = (n) => (n || n === 0) ? `PHP ${Number(n).toLocaleString()}` : ''
     const amountParts = [
@@ -95,10 +102,31 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
       status: p.status || '',
       next_steps: '',
     }
-    // Pipeline projects still at "Bidding" status are early-stage --
-    // imported into Qualified / Identified rather than Under Negotiation,
-    // which is reserved for deals that have moved past bidding.
-    const targetKey = (p.status || '').toLowerCase().includes('bidding') ? 'qualified' : 'primary'
+
+    let targetKey
+    if (teamType === 'business_development') {
+      // BD's Project Opportunities are Spec-in-driven: a project only
+      // belongs in Qualified / Identified while it's still at Bidding
+      // status, and only belongs in SPEC-IN once Pipeline's Spec-in field
+      // actually says Midea is in the approved brand list. A project that's
+      // neither (e.g. Lost, Design Stage, or Bidding-but-not-yet-specced)
+      // doesn't cleanly fit either section, so it's left for the rep to add
+      // manually rather than guessed at.
+      if (isBidding(p.status)) {
+        targetKey = 'qualified'
+      } else if (isSpecIn(p.specin)) {
+        targetKey = 'primary'
+      } else {
+        alert(`"${p.name}" isn't at Bidding status and isn't flagged Spec-in in Pipeline, so it doesn't clearly belong in either Qualified / Identified or SPEC-IN. Add it to the table manually below if you still want it on this FCR.`)
+        return
+      }
+    } else {
+      // MBT Sales' Under Negotiation section isn't Spec-in-based -- keep the
+      // simpler rule: still-Bidding projects are early-stage (Qualified /
+      // Identified), everything else has moved past bidding.
+      targetKey = isBidding(p.status) ? 'qualified' : 'primary'
+    }
+
     setFormData({
       project_opportunities: {
         ...formData.project_opportunities,
