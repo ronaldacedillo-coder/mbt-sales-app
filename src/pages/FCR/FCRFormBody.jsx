@@ -5,6 +5,7 @@ import { EditableTable } from '../../components/EditableTable'
 import { monthKeys, monthLabels, PROJECT_REP_LABEL } from './fcrTemplates'
 import { PipelineProjectsPanel } from '../Accounts/PipelineProjectsPanel'
 import { TRADE_TERMS_LABELS } from '../../utils/accounts'
+import { buildFcrMinutesText } from '../../lib/fcrMinutes'
 
 // Customer Information now lives entirely on the Account profile -- this
 // just maps an account row onto the shape the FCR's read-only fields
@@ -51,7 +52,7 @@ const STATUS_OPTIONS = ['Not Started', 'Ongoing', 'Completed', 'N/A']
 // the official paper template, laid out differently for the MBT Sales (SE)
 // team vs. the Business Development (BD) team. Used both as the live editor
 // (FCRForm) and, with readOnly, as the reviewer's read-only view (FCRApproval).
-export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [] }) => {
+export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [], submitterName = '' }) => {
   const customerInfo = record.customer_info || {}
   const formData = record.form_data || {}
 
@@ -184,6 +185,27 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
             <Field label="Visit Freq / Days" value={customerInfo.visit_freq_days} readOnly onChange={() => {}} />
             <Field label="Trade Terms" value={selectedAccount ? TRADE_TERMS_LABELS[selectedAccount.trade_terms] : ''} readOnly onChange={() => {}} />
             <Field label="Visit Date" type="date" value={record.visit_date} readOnly={readOnly} onChange={(v) => set({ visit_date: v })} />
+            <div>
+              <label className="label">AM / PM</label>
+              {readOnly ? (
+                <div className="input bg-gray-50 text-gray-700 min-h-[38px]">{record.period === 'PM' ? 'PM' : 'AM'}</div>
+              ) : (
+                <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+                  {['AM', 'PM'].map(p => (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => set({ period: p })}
+                      className={`flex-1 py-2 font-medium transition-colors ${
+                        (record.period || 'AM') === p ? 'bg-primary-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -453,6 +475,47 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
               className="input min-h-[100px]"
             />
           )}
+        </div>
+      </div>
+
+      {/* Meeting Attendee -- the account-side person who attended this visit.
+          Their email is what the acknowledgment link gets sent to (see
+          "Account Acknowledgment" section on the FCRForm page below). */}
+      <div>
+        <SectionHeader>Meeting Attendee (Account Side)</SectionHeader>
+        <div className="border border-t-0 border-gray-200 rounded-b-lg p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field
+              label="Attendee Name"
+              value={record.attendee_name}
+              readOnly={readOnly}
+              onChange={(v) => set({ attendee_name: v })}
+            />
+            <Field
+              label="Attendee Email"
+              type="email"
+              value={record.attendee_email}
+              readOnly={readOnly}
+              onChange={(v) => set({ attendee_email: v })}
+            />
+          </div>
+          {!readOnly && (
+            <p className="text-xs text-gray-400 mt-2">
+              Required to send the meeting minutes for acknowledgment -- the FCR can't be exported as a PDF until the account acknowledges.
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Minutes of the Meeting -- auto-generated from this FCR's own
+          content. This exact text is what the account acknowledges via the
+          emailed link, and what appears in the exported PDF. */}
+      <div>
+        <SectionHeader>Minutes of the Meeting (Preview)</SectionHeader>
+        <div className="border border-t-0 border-gray-200 rounded-b-lg p-4 bg-gray-50">
+          <pre className="text-xs text-gray-700 whitespace-pre-wrap font-mono leading-relaxed">
+            {buildFcrMinutesText({ record, submitterName })}
+          </pre>
         </div>
       </div>
 

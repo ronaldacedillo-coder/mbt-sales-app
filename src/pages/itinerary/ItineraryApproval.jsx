@@ -111,9 +111,9 @@ export const ItineraryApproval = () => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Itinerary Approvals</h1>
+        <h1 className="text-2xl font-bold text-gray-900">MCP (Plan) Approvals</h1>
         <p className="text-gray-500 mt-1">
-          Review and approve pending itineraries
+          Review and approve pending Monthly Coverage Plans
         </p>
       </div>
 
@@ -121,7 +121,7 @@ export const ItineraryApproval = () => {
         <div className="card text-center py-16">
           <CheckCircle2 size={48} className="mx-auto text-emerald-300 mb-4" />
           <h3 className="text-lg font-medium text-gray-900">All caught up!</h3>
-          <p className="text-gray-500 mt-1">No pending itineraries to review</p>
+          <p className="text-gray-500 mt-1">No pending MCP (Plan)s to review</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -131,7 +131,7 @@ export const ItineraryApproval = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {item.title || `Itinerary - ${format(parseISO(item.month), 'MMMM yyyy')}`}
+                      {item.title || `MCP (Plan) - ${format(parseISO(item.month), 'MMMM yyyy')}`}
                     </h3>
                     <span className="badge badge-pending">Pending Approval</span>
                   </div>

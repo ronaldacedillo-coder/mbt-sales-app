@@ -123,12 +123,12 @@ export const ItineraryList = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Itineraries</h1>
-          <p className="text-gray-500 mt-1">Manage monthly visit schedules</p>
+          <h1 className="text-2xl font-bold text-gray-900">MCP (Plan)</h1>
+          <p className="text-gray-500 mt-1">Monthly Coverage Plan -- propose and get approval for your visit schedule</p>
         </div>
         <Link to="/itinerary/new" className="btn-primary flex items-center gap-2">
           <Plus size={18} />
-          New Itinerary
+          New MCP (Plan)
         </Link>
       </div>
 
@@ -138,7 +138,7 @@ export const ItineraryList = () => {
           <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Search itineraries..."
+            placeholder="Search MCP (Plan)s..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="input pl-10"
@@ -169,11 +169,11 @@ export const ItineraryList = () => {
       ) : filteredItineraries.length === 0 ? (
         <div className="card text-center py-16">
           <Calendar size={48} className="mx-auto text-gray-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900">No itineraries found</h3>
-          <p className="text-gray-500 mt-1">Create your first itinerary to get started</p>
+          <h3 className="text-lg font-medium text-gray-900">No MCP (Plan)s found</h3>
+          <p className="text-gray-500 mt-1">Create your first Monthly Coverage Plan to get started</p>
           <Link to="/itinerary/new" className="btn-primary mt-4 inline-flex items-center gap-2">
             <Plus size={18} />
-            Create Itinerary
+            Create MCP (Plan)
           </Link>
         </div>
       ) : (
@@ -184,7 +184,7 @@ export const ItineraryList = () => {
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-lg font-semibold text-gray-900">
-                      {item.title || `Itinerary - ${format(parseISO(item.month), 'MMMM yyyy')}`}
+                      {item.title || `MCP (Plan) - ${format(parseISO(item.month), 'MMMM yyyy')}`}
                     </h3>
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusStyle(item.status)}`}>
                       {getStatusIcon(item.status)}

@@ -183,6 +183,15 @@ export const FCRList = () => {
                     <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusStyle(item.status)}`}>
                       {item.status === 'pending_approval' ? 'Pending Approval' : item.status.charAt(0).toUpperCase() + item.status.slice(1)}
                     </span>
+                    {item.ack_status === 'acknowledged' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        Minutes Acknowledged
+                      </span>
+                    ) : item.ack_status === 'pending' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                        Awaiting Acknowledgment
+                      </span>
+                    ) : null}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">

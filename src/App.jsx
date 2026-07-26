@@ -13,7 +13,9 @@ import { AccountDetail } from './pages/Accounts/AccountDetail'
 import { FCRList } from './pages/FCR/FCRList'
 import { FCRForm } from './pages/FCR/FCRForm'
 import { FCRApproval } from './pages/FCR/FCRApproval'
-import { MeetingMinutes } from './pages/Meetings/MeetingMinutes'
+import { AcknowledgeFCR } from './pages/Acknowledge/AcknowledgeFCR'
+import { MCPActual } from './pages/mcp/MCPActual'
+import { MCPArchive } from './pages/mcp/MCPArchive'
 import { ROLES } from './utils/roles'
 
 function App() {
@@ -30,7 +32,11 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" replace />} />
-      
+
+      {/* Public -- no login. Reached only via the link a Sales/BD rep emails
+          to an account contact for them to acknowledge the meeting minutes. */}
+      <Route path="/acknowledge/:token" element={<AcknowledgeFCR />} />
+
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route path="/dashboard" element={<Dashboard />} />
         
@@ -57,8 +63,9 @@ function App() {
           </ProtectedRoute>
         } />
         
-        <Route path="/meetings" element={<MeetingMinutes />} />
-        
+        <Route path="/mcp-actual" element={<MCPActual />} />
+        <Route path="/mcp-archive" element={<MCPArchive />} />
+
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>

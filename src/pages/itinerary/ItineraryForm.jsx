@@ -4,7 +4,6 @@ import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ROLES, getApproverRole } from '../../utils/roles'
 import { MonthCalendar } from './MonthCalendar'
-import { downloadMCPPdf } from '../../lib/mcpPdf'
 import {
   ArrowLeft,
   Plus,
@@ -17,7 +16,6 @@ import {
   Send,
   AlertCircle,
   ClipboardCheck,
-  FileText,
   List,
   CalendarDays
 } from 'lucide-react'
@@ -26,7 +24,7 @@ import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns'
 export const ItineraryForm = () => {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user, role, profile } = useAuth()
+  const { user, role } = useAuth()
   const isEdit = Boolean(id)
 
   const [formData, setFormData] = useState({
@@ -41,7 +39,6 @@ export const ItineraryForm = () => {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [view, setView] = useState('calendar')
-  const [exportingPdf, setExportingPdf] = useState(false)
 
   useEffect(() => {
     fetchAccounts()
@@ -194,24 +191,6 @@ export const ItineraryForm = () => {
 
   const accountName = (accountId) => accounts.find(a => a.id === accountId)?.company_name || 'Unassigned account'
 
-  const handleExportPdf = async () => {
-    setExportingPdf(true)
-    try {
-      await downloadMCPPdf({
-        itinerary: formData,
-        visits: formData.visits,
-        accounts,
-        submitterName: formData.creator?.full_name || profile?.full_name,
-        approverName: formData.approver?.full_name,
-      })
-    } catch (err) {
-      console.error('Failed to export MCP PDF:', err)
-      setError('Failed to generate the PDF file')
-    } finally {
-      setExportingPdf(false)
-    }
-  }
-
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
@@ -223,24 +202,12 @@ export const ItineraryForm = () => {
         </button>
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-gray-900">
-            {isEdit ? 'Edit Itinerary' : 'New Itinerary'}
+            {isEdit ? 'Edit MCP (Plan)' : 'New MCP (Plan)'}
           </h1>
           <p className="text-gray-500 text-sm">
-            {isEdit ? 'Update your monthly schedule' : 'Plan your monthly visits'}
+            {isEdit ? 'Update your proposed monthly schedule' : 'Propose your monthly visit schedule for approval'}
           </p>
         </div>
-        {isEdit && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleExportPdf}
-              disabled={exportingPdf}
-              className="btn-secondary flex items-center gap-2"
-              title="Downloads a .pdf in MBT's official Monthly Coverage Plan (MCP) format"
-            >
-              <FileText size={16} /> {exportingPdf ? 'Exporting...' : 'Export MCP (PDF)'}
-            </button>
-          </div>
-        )}
       </div>
 
       {error && (

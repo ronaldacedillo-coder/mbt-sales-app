@@ -13,7 +13,6 @@ import {
   Star,
   Pencil,
   ClipboardCheck,
-  Users,
   Calendar,
   Lightbulb,
   ChevronRight,
@@ -50,7 +49,6 @@ export const AccountDetail = () => {
 
   const [account, setAccount] = useState(null)
   const [fcrs, setFcrs] = useState([])
-  const [meetings, setMeetings] = useState([])
   const [itineraryVisits, setItineraryVisits] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -63,7 +61,7 @@ export const AccountDetail = () => {
     setLoading(true)
     setError('')
     try {
-      const [{ data: accountData, error: accountError }, { data: fcrData }, { data: meetingData }, { data: itineraryData }] = await Promise.all([
+      const [{ data: accountData, error: accountError }, { data: fcrData }, { data: itineraryData }] = await Promise.all([
         supabase
           .from('accounts')
           .select('*, creator:user_profiles!accounts_created_by_fkey(full_name:name)')
@@ -71,14 +69,9 @@ export const AccountDetail = () => {
           .single(),
         supabase
           .from('fcrs')
-          .select('id, visit_date, status, team_type, customer_info, created_at')
+          .select('id, visit_date, status, team_type, customer_info, created_at, ack_status')
           .eq('account_id', id)
           .order('visit_date', { ascending: false }),
-        supabase
-          .from('meetings')
-          .select('id, title, meeting_date, start_time, end_time')
-          .eq('account_id', id)
-          .order('meeting_date', { ascending: false }),
         supabase
           .from('itineraries')
           .select('id, month, visits')
@@ -88,7 +81,6 @@ export const AccountDetail = () => {
       if (accountError) throw accountError
       setAccount(accountData)
       setFcrs(fcrData || [])
-      setMeetings(meetingData || [])
 
       const visits = []
       for (const itinerary of itineraryData || []) {
@@ -253,6 +245,9 @@ export const AccountDetail = () => {
                         {item.visit_date ? format(parseISO(item.visit_date), 'MMM dd, yyyy') : 'No date'}
                         <span className="text-gray-400 font-normal"> · {item.team_type === 'business_development' ? 'BD Report' : 'MBT Sales Report'}</span>
                       </p>
+                      {item.ack_status === 'acknowledged' && (
+                        <p className="text-xs text-emerald-600 mt-0.5">Minutes acknowledged</p>
+                      )}
                     </div>
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusStyle(item.status)}`}>
                       {item.status === 'pending_approval' ? 'Pending' : item.status.charAt(0).toUpperCase() + item.status.slice(1)}
@@ -265,27 +260,7 @@ export const AccountDetail = () => {
 
           <div className="card">
             <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <Users size={16} /> Meetings ({meetings.length})
-            </h3>
-            {meetings.length === 0 ? (
-              <p className="text-sm text-gray-400">No meeting minutes logged against this account yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {meetings.map(m => (
-                  <div key={m.id} className="p-3 bg-gray-50 rounded-lg">
-                    <p className="text-sm font-medium text-gray-900">{m.title}</p>
-                    <p className="text-xs text-gray-500">
-                      {m.meeting_date} {m.start_time ? `· ${m.start_time}–${m.end_time || ''}` : ''}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="card">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-              <Calendar size={16} /> Itinerary Visits ({itineraryVisits.length})
+              <Calendar size={16} /> MCP (Plan) Visits ({itineraryVisits.length})
             </h3>
             {itineraryVisits.length === 0 ? (
               <p className="text-sm text-gray-400">No planned visits logged against this account yet.</p>

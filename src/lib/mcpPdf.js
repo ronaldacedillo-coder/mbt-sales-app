@@ -1,12 +1,24 @@
 import { format, parseISO } from 'date-fns'
 import { getMCPWeeks, groupVisitsByDayPeriod } from './mcpWeeks'
 
-// Generates and downloads an actual .pdf styled after MBT's official
-// Monthly Coverage Plan (MCP) template, built from the shared week/visit
-// grouping logic in mcpWeeks.js.
-// Uses jsPDF + autoTable rather than window.print(), so this is a real file
-// download, not a browser print-dialog workaround.
-export const downloadMCPPdf = async ({ itinerary, visits, accounts, submitterName, approverName }) => {
+// Generates and downloads a real .pdf styled after MBT's official Monthly
+// Coverage Plan (MCP) template, built from the shared week/visit grouping
+// logic in mcpWeeks.js. Uses jsPDF + autoTable rather than window.print(),
+// so this is a real file download, not a browser print-dialog workaround.
+//
+// Only MCP (Actual) exports a PDF (MCP (Plan) is approve-only) -- this is
+// generic enough to serve that one caller while still reading naturally as
+// "the MCP PDF builder" rather than something Actual-specific.
+export const downloadMCPPdf = async ({
+  month,
+  notes,
+  visits,
+  accounts,
+  submitterName,
+  approverName,
+  title = 'MONTHLY COVERAGE PLAN',
+  filenamePrefix = 'MCP',
+}) => {
   const [{ jsPDF: JsPDF }, autoTableModule] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -15,7 +27,7 @@ export const downloadMCPPdf = async ({ itinerary, visits, accounts, submitterNam
   // depending on bundler -- cover both shapes rather than assume one.
   const autoTable = autoTableModule.default?.default || autoTableModule.default
 
-  const monthDate = itinerary.month ? parseISO(itinerary.month) : new Date()
+  const monthDate = month ? parseISO(month) : new Date()
   const weeks = getMCPWeeks(monthDate)
   const byDay = groupVisitsByDayPeriod(visits, accounts)
 
@@ -25,7 +37,7 @@ export const downloadMCPPdf = async ({ itinerary, visits, accounts, submitterNam
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(16)
-  doc.text('MONTHLY COVERAGE PLAN', pageWidth / 2, 32, { align: 'center' })
+  doc.text(title, pageWidth / 2, 32, { align: 'center' })
 
   doc.setFontSize(10)
   doc.text(`NAME: ${submitterName || ''}`, margin, 52)
@@ -65,10 +77,10 @@ export const downloadMCPPdf = async ({ itinerary, visits, accounts, submitterNam
 
   let y = doc.lastAutoTable.finalY + 20
 
-  if (itinerary.notes) {
+  if (notes) {
     doc.setFont('helvetica', 'italic')
     doc.setFontSize(9)
-    const lines = doc.splitTextToSize(`Notes: ${itinerary.notes}`, pageWidth - margin * 2)
+    const lines = doc.splitTextToSize(`Notes: ${notes}`, pageWidth - margin * 2)
     doc.text(lines, margin, y)
     y += lines.length * 12 + 10
   }
@@ -97,5 +109,5 @@ export const downloadMCPPdf = async ({ itinerary, visits, accounts, submitterNam
   doc.text('SUBMITTED BY', leftX, y + 16)
   doc.text('REVIEWED & APPROVED BY', rightX, y + 16)
 
-  doc.save(`MCP - ${format(monthDate, 'MMMM yyyy')}.pdf`)
+  doc.save(`${filenamePrefix} - ${format(monthDate, 'MMMM yyyy')}.pdf`)
 }

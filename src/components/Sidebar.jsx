@@ -7,7 +7,7 @@ import {
   Calendar,
   Building2,
   FileText,
-  Users,
+  Archive,
   ClipboardCheck,
   CheckCircle2,
   ChevronRight,
@@ -52,12 +52,13 @@ export const Sidebar = () => {
 
   const navItems = [
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD] },
-    { path: '/itinerary', label: 'Itinerary', icon: Calendar, roles: [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD] },
+    { path: '/itinerary', label: 'MCP (Plan)', icon: Calendar, roles: [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD] },
     { path: '/accounts', label: 'Accounts', icon: Building2, roles: [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD] },
     { path: '/fcr', label: 'Field Contact Reports', icon: ClipboardCheck, roles: [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD] },
-    { path: '/meetings', label: 'Meetings', icon: Users, roles: [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD] },
+    { path: '/mcp-actual', label: 'MCP (Actual)', icon: Calendar, roles: [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD] },
+    { path: '/mcp-archive', label: 'MCP Archive', icon: Archive, roles: [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD] },
     { path: '/fcr/approval', label: 'FCR Approvals', icon: CheckCircle2, roles: APPROVER_ROLES, badge: pendingFCRs },
-    { path: '/itinerary/approval', label: 'Itinerary Approvals', icon: CheckCircle2, roles: APPROVER_ROLES, badge: pendingItineraries },
+    { path: '/itinerary/approval', label: 'MCP (Plan) Approvals', icon: CheckCircle2, roles: APPROVER_ROLES, badge: pendingItineraries },
   ]
 
   const filteredNav = navItems.filter(item => item.roles.includes(role))

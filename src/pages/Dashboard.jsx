@@ -2,20 +2,18 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { Link } from 'react-router-dom'
+import { MonthCalendar } from './itinerary/MonthCalendar'
 import {
   Calendar,
   Building2,
   ClipboardCheck,
-  Users,
-  TrendingUp,
+  Archive,
   Clock,
   AlertCircle,
-  CheckCircle2,
-  XCircle,
   ArrowRight
 } from 'lucide-react'
-import { ROLES, canApproveItinerary, canApproveFCR } from '../utils/roles'
-import { format, parseISO, differenceInCalendarDays, addDays } from 'date-fns'
+import { ROLES } from '../utils/roles'
+import { format, parseISO, differenceInCalendarDays, addDays, startOfMonth } from 'date-fns'
 
 const LEADERSHIP_ROLES = [ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD]
 
@@ -25,14 +23,16 @@ export const Dashboard = () => {
     pendingItineraries: 0,
     pendingFCRs: 0,
     totalAccounts: 0,
-    totalMeetings: 0,
     myItineraries: 0,
     myFCRs: 0,
+    archivedMCPs: 0,
   })
   const [recentItineraries, setRecentItineraries] = useState([])
   const [recentFCRs, setRecentFCRs] = useState([])
   const [followUps, setFollowUps] = useState([])
   const [teamStats, setTeamStats] = useState({ approvedFCRs: 0, rejectedFCRs: 0, overdueFollowUps: 0 })
+  const [approvedPlan, setApprovedPlan] = useState(null)
+  const [planAccounts, setPlanAccounts] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -74,27 +74,40 @@ export const Dashboard = () => {
       // Fetch accounts (team-wide -- accounts are a shared address book)
       const { data: accounts } = await supabase
         .from('accounts')
-        .select('id')
+        .select('id, company_name')
 
-      // Fetch meetings
-      const { data: meetings } = await supabase
-        .from('meetings')
-        .select('id, title, next_meeting_date, account:accounts(company_name)')
+      const { count: archivedMCPs } = await supabase
+        .from('mcp_archive')
+        .select('id', { count: 'exact', head: true })
+        .eq('generated_by', user.id)
+
+      // This month's approved MCP (Plan) -- shown as a calendar below once
+      // it clears approval, per the "approved plan shows on the dashboard"
+      // workflow.
+      const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd')
+      const { data: plan } = await supabase
+        .from('itineraries')
+        .select('*')
         .eq('created_by', user.id)
+        .eq('month', monthStart)
+        .eq('status', 'approved')
+        .maybeSingle()
+      setApprovedPlan(plan || null)
+      setPlanAccounts(accounts || [])
 
       setStats({
         pendingItineraries: itineraries?.filter(i => i.status === 'pending_approval').length || 0,
         pendingFCRs: fcrs?.filter(f => f.status === 'pending_approval').length || 0,
         totalAccounts: accounts?.length || 0,
-        totalMeetings: meetings?.length || 0,
         myItineraries: itineraries?.length || 0,
         myFCRs: fcrs?.length || 0,
+        archivedMCPs: archivedMCPs || 0,
       })
 
       setRecentItineraries(itineraries?.slice(0, 5) || [])
       setRecentFCRs(fcrs?.slice(0, 5) || [])
 
-      // Follow-ups due soon or overdue: FCR follow_up_date + Meeting next_meeting_date
+      // Follow-ups due soon or overdue, from FCR follow_up_date
       const today = new Date()
       const horizon = addDays(today, 14)
       const items = []
@@ -110,21 +123,6 @@ export const Dashboard = () => {
             date: f.follow_up_date,
             overdue: differenceInCalendarDays(dueDate, today) < 0,
             link: `/fcr/${f.id}`,
-          })
-        }
-      }
-
-      for (const m of meetings || []) {
-        if (!m.next_meeting_date) continue
-        const dueDate = parseISO(m.next_meeting_date)
-        if (dueDate <= horizon) {
-          items.push({
-            key: `meeting-${m.id}`,
-            type: 'Next meeting',
-            label: m.account?.company_name || m.title,
-            date: m.next_meeting_date,
-            overdue: differenceInCalendarDays(dueDate, today) < 0,
-            link: '/meetings',
           })
         }
       }
@@ -203,21 +201,33 @@ export const Dashboard = () => {
           color="amber"
           link="/fcr"
         />
-        <StatCard 
-          icon={Building2} 
-          label="Total Accounts" 
+        <StatCard
+          icon={Building2}
+          label="Total Accounts"
           value={stats.totalAccounts}
           color="emerald"
           link="/accounts"
         />
-        <StatCard 
-          icon={Users} 
-          label="Total Meetings" 
-          value={stats.totalMeetings}
+        <StatCard
+          icon={Archive}
+          label="MCP Archive"
+          value={stats.archivedMCPs}
           color="purple"
-          link="/meetings"
+          link="/mcp-archive"
         />
       </div>
+
+      {approvedPlan && (
+        <div className="card">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">This Month's MCP (Plan)</h3>
+            <Link to={`/itinerary/${approvedPlan.id}`} className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1">
+              View Full Plan <ArrowRight size={14} />
+            </Link>
+          </div>
+          <MonthCalendar month={approvedPlan.month} visits={approvedPlan.visits || []} accounts={planAccounts} />
+        </div>
+      )}
 
       {role && LEADERSHIP_ROLES.includes(role) && (
         <div className="card">
@@ -336,32 +346,32 @@ export const Dashboard = () => {
       <div className="card">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <QuickActionCard 
-            icon={Calendar}
-            label="New Itinerary"
-            description="Plan your monthly visits"
-            link="/itinerary/new"
-            color="blue"
-          />
-          <QuickActionCard 
+          <QuickActionCard
             icon={Building2}
             label="Add Account"
-            description="Register a new prospect"
+            description="Profile a prospect first"
             link="/accounts/new"
             color="emerald"
           />
-          <QuickActionCard 
+          <QuickActionCard
+            icon={Calendar}
+            label="New MCP (Plan)"
+            description="Propose your monthly visits"
+            link="/itinerary/new"
+            color="blue"
+          />
+          <QuickActionCard
             icon={ClipboardCheck}
             label="New FCR"
-            description="Submit field report"
+            description="Log a field visit"
             link="/fcr/new"
             color="amber"
           />
-          <QuickActionCard 
-            icon={Users}
-            label="Schedule Meeting"
-            description="Plan a client meeting"
-            link="/meetings"
+          <QuickActionCard
+            icon={Archive}
+            label="MCP (Actual)"
+            description="See what actually happened"
+            link="/mcp-actual"
             color="purple"
           />
         </div>

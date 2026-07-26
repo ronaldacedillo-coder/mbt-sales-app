@@ -180,6 +180,7 @@ export const FCRApproval = () => {
                     onChange={() => {}}
                     teamType={item.team_type || 'mbt_sales'}
                     readOnly
+                    submitterName={item.creator?.full_name}
                   />
                 </div>
               )}
