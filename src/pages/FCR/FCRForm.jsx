@@ -276,7 +276,7 @@ export const FCRForm = () => {
               </span>
             )}
 
-            {record.ack_status !== 'acknowledged' && !readOnly && (
+            {record.ack_status !== 'acknowledged' && (
               <button
                 onClick={handleSendAcknowledgment}
                 disabled={sendingAck || !record.attendee_email}
