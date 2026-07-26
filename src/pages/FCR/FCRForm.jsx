@@ -132,9 +132,11 @@ export const FCRForm = () => {
     handleSave('pending_approval')
   }
 
-  // Flips ack_status to 'pending' and opens the SE/BD's own mail client with
-  // the acknowledgment link pre-filled -- mirrors the mailto pattern already
-  // used elsewhere in this app rather than standing up a server-side mailer.
+  // Emails the attendee directly via the send-fcr-acknowledgment Edge
+  // Function (Resend) -- a one-click "Confirm Meeting Happened" button in
+  // their inbox, no mail app popup on the SE/BD's side. The function is
+  // authenticated as the current user, so it only ever works on FCRs they
+  // own (enforced by the fcrs table's own RLS policies).
   const handleSendAcknowledgment = async () => {
     if (!record.attendee_email) {
       setError('Enter the attendee\'s email address first')
@@ -143,22 +145,12 @@ export const FCRForm = () => {
     setSendingAck(true)
     setError('')
     try {
-      const { data, error } = await supabase
-        .from('fcrs')
-        .update({ ack_status: 'pending', ack_requested_at: new Date().toISOString() })
-        .eq('id', id)
-        .select('ack_token, ack_status, ack_requested_at')
-        .single()
+      const { data, error } = await supabase.functions.invoke('send-fcr-acknowledgment', {
+        body: { fcr_id: id },
+      })
       if (error) throw error
-      setRecord(prev => ({ ...prev, ...data }))
-
-      const link = `${window.location.origin}${import.meta.env.BASE_URL}#/acknowledge/${data.ack_token}`
-      const company = record.customer_info?.company_name || 'our recent visit'
-      const subject = encodeURIComponent(`Please acknowledge: Meeting minutes -- ${company}`)
-      const body = encodeURIComponent(
-        `Hi ${record.attendee_name || ''},\n\nPlease review and acknowledge the minutes from our recent visit:\n\n${link}\n\nThank you!`
-      )
-      window.location.href = `mailto:${record.attendee_email}?subject=${subject}&body=${body}`
+      if (!data?.ok) throw new Error(data?.error || 'Failed to send the acknowledgment email')
+      setRecord(prev => ({ ...prev, ack_status: 'pending', ack_requested_at: new Date().toISOString() }))
     } catch (err) {
       setError(err.message || 'Failed to send the acknowledgment request')
     } finally {
@@ -306,7 +298,7 @@ export const FCRForm = () => {
             )}
           </div>
           <p className="text-xs text-gray-400 mt-3">
-            Sending opens your email app with the acknowledgment link pre-filled -- the account clicks it, reviews the minutes, and confirms. The PDF export above unlocks once they do.
+            Sends an email directly to the attendee with a one-click "Confirm Meeting Happened" button. The PDF export above unlocks once they click it.
           </p>
         </div>
       )}

@@ -16,7 +16,7 @@ export const AcknowledgeFCR = () => {
   const [notFound, setNotFound] = useState(false)
   const [details, setDetails] = useState(null)
   const [name, setName] = useState('')
-  const [confirmed, setConfirmed] = useState(false)
+  const [editingName, setEditingName] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [justAcknowledged, setJustAcknowledged] = useState(false)
@@ -37,8 +37,11 @@ export const AcknowledgeFCR = () => {
     load()
   }, [token])
 
+  // One click confirms -- the attendee's name is already on file from the
+  // FCR (the SE/BD entered it when logging the visit), so there's nothing
+  // to type unless it needs correcting.
   const handleAcknowledge = async () => {
-    if (!name.trim() || !confirmed) return
+    if (!name.trim()) return
     setSubmitting(true)
     setError('')
     try {
@@ -50,7 +53,7 @@ export const AcknowledgeFCR = () => {
       }
       setJustAcknowledged(true)
     } catch (err) {
-      setError(err.message || 'Failed to submit your acknowledgment. Please try again.')
+      setError(err.message || 'Failed to submit your confirmation. Please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -126,38 +129,39 @@ export const AcknowledgeFCR = () => {
               <CheckCircle2 size={20} className="text-emerald-600 flex-shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-medium text-emerald-800">
-                  Acknowledged{details.acknowledged_name || justAcknowledged ? ` by ${justAcknowledged ? name : details.acknowledged_name}` : ''}
+                  Confirmed{details.acknowledged_name || justAcknowledged ? ` by ${justAcknowledged ? name : details.acknowledged_name}` : ''}
                 </p>
                 <p className="text-xs text-emerald-700 mt-0.5">Thank you -- no further action is needed. You may close this page.</p>
               </div>
             </div>
           ) : (
             <div className="border-t border-gray-200 pt-4 space-y-3">
-              <div>
-                <label className="label">Your Name</label>
-                <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="input"
-                  placeholder="Type your full name"
-                />
-              </div>
-              <label className="flex items-start gap-2 text-sm text-gray-600">
-                <input
-                  type="checkbox"
-                  checked={confirmed}
-                  onChange={(e) => setConfirmed(e.target.checked)}
-                  className="mt-0.5"
-                />
-                I confirm that the minutes above accurately reflect our discussion.
-              </label>
+              {editingName ? (
+                <div>
+                  <label className="label">Your Name</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="input"
+                    placeholder="Type your full name"
+                    autoFocus
+                  />
+                </div>
+              ) : (
+                <p className="text-sm text-gray-600">
+                  Confirming as <span className="font-medium text-gray-900">{name || 'Not specified'}</span>.{' '}
+                  <button type="button" onClick={() => setEditingName(true)} className="text-primary-600 hover:underline">
+                    Not you?
+                  </button>
+                </p>
+              )}
               <button
                 onClick={handleAcknowledge}
-                disabled={!name.trim() || !confirmed || submitting}
-                className="btn-primary w-full disabled:opacity-50"
+                disabled={!name.trim() || submitting}
+                className="btn-primary w-full text-base py-3 disabled:opacity-50"
               >
-                {submitting ? 'Submitting...' : 'Acknowledge Minutes'}
+                {submitting ? 'Confirming...' : 'Confirm Meeting Happened'}
               </button>
             </div>
           )}
