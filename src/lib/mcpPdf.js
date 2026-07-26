@@ -2,10 +2,10 @@ import { format, parseISO } from 'date-fns'
 import { getMCPWeeks, groupVisitsByDayPeriod } from './mcpWeeks'
 
 // Generates and downloads an actual .pdf styled after MBT's official
-// Monthly Coverage Plan (MCP) template -- built directly from the same
-// week/visit data as the Excel export (mcpExcel.js), so both files agree.
+// Monthly Coverage Plan (MCP) template, built from the shared week/visit
+// grouping logic in mcpWeeks.js.
 // Uses jsPDF + autoTable rather than window.print(), so this is a real file
-// download like the Excel export, not a browser print-dialog workaround.
+// download, not a browser print-dialog workaround.
 export const downloadMCPPdf = async ({ itinerary, visits, accounts, submitterName, approverName }) => {
   const [{ jsPDF: JsPDF }, autoTableModule] = await Promise.all([
     import('jspdf'),

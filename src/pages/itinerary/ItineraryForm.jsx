@@ -4,7 +4,6 @@ import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ROLES, getApproverRole } from '../../utils/roles'
 import { MonthCalendar } from './MonthCalendar'
-import { downloadMCPWorkbook } from '../../lib/mcpExcel'
 import { downloadMCPPdf } from '../../lib/mcpPdf'
 import {
   ArrowLeft,
@@ -20,8 +19,7 @@ import {
   ClipboardCheck,
   FileText,
   List,
-  CalendarDays,
-  FileSpreadsheet
+  CalendarDays
 } from 'lucide-react'
 import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns'
 
@@ -43,7 +41,6 @@ export const ItineraryForm = () => {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [view, setView] = useState('calendar')
-  const [exportingExcel, setExportingExcel] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
 
   useEffect(() => {
@@ -197,24 +194,6 @@ export const ItineraryForm = () => {
 
   const accountName = (accountId) => accounts.find(a => a.id === accountId)?.company_name || 'Unassigned account'
 
-  const handleExportExcel = async () => {
-    setExportingExcel(true)
-    try {
-      await downloadMCPWorkbook({
-        itinerary: formData,
-        visits: formData.visits,
-        accounts,
-        submitterName: formData.creator?.full_name || profile?.full_name,
-        approverName: formData.approver?.full_name,
-      })
-    } catch (err) {
-      console.error('Failed to export MCP Excel:', err)
-      setError('Failed to generate the Excel file')
-    } finally {
-      setExportingExcel(false)
-    }
-  }
-
   const handleExportPdf = async () => {
     setExportingPdf(true)
     try {
@@ -252,14 +231,6 @@ export const ItineraryForm = () => {
         </div>
         {isEdit && (
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleExportExcel}
-              disabled={exportingExcel}
-              className="btn-secondary flex items-center gap-2"
-              title="Downloads an .xlsx in MBT's official Monthly Coverage Plan (MCP) format"
-            >
-              <FileSpreadsheet size={16} /> {exportingExcel ? 'Exporting...' : 'Export MCP (Excel)'}
-            </button>
             <button
               onClick={handleExportPdf}
               disabled={exportingPdf}
