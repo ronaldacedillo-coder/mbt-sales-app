@@ -3,16 +3,17 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ROLES, canApproveFCR, canCreateFCR } from '../../utils/roles'
-import { 
-  Plus, 
-  ClipboardCheck, 
-  Search, 
+import {
+  Plus,
+  ClipboardCheck,
+  Search,
   ChevronRight,
   CheckCircle2,
   XCircle,
   Clock,
   Building2,
-  Calendar
+  Calendar,
+  Trash2
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 
@@ -83,6 +84,21 @@ export const FCRList = () => {
     } catch (error) {
       console.error('Error rejecting FCR:', error)
       alert('Failed to reject FCR')
+    }
+  }
+
+  // Commercial AC Head only -- covered by the fcrs_delete_head RLS policy
+  // (BD submissions, the only ones the Head can see/approve here). Handy
+  // for clearing out test/demo/duplicate entries without a database console.
+  const handleDelete = async (id) => {
+    if (!confirm('Delete this FCR? This cannot be undone.')) return
+    try {
+      const { error } = await supabase.from('fcrs').delete().eq('id', id)
+      if (error) throw error
+      fetchFCRs()
+    } catch (error) {
+      console.error('Error deleting FCR:', error)
+      alert('Failed to delete FCR')
     }
   }
 
@@ -253,7 +269,16 @@ export const FCRList = () => {
                       </button>
                     </>
                   )}
-                  <Link 
+                  {role === ROLES.COMMERCIAL_AC_HEAD && (
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete FCR"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                  <Link
                     to={`/fcr/${item.id}`}
                     className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                   >

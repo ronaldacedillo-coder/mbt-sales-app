@@ -158,13 +158,21 @@ export const AccountForm = () => {
   // field -- role 'se' is the short code MBT Project Pipeline stores for
   // Sales Engineer (see PIPELINE_ROLE_MAP in utils/roles.js), which is what
   // this shared user_profiles table uses regardless of which app you're in.
+  //
+  // EXCLUDED_SE_IDS -- Sales Engineers kept out of the assignment dropdown
+  // by request (e.g. no longer covering accounts here), without touching
+  // their actual user_profiles.role, which is shared with MBT Project
+  // Pipeline and shouldn't be changed just to hide someone from this list.
+  // Elmer Anthony Cubita, 2026-07-26.
+  const EXCLUDED_SE_IDS = ['57a08234-7fd6-4c3b-be5a-f3c0342e3ec5']
+
   const fetchSalesEngineers = async () => {
     const { data } = await supabase
       .from('user_profiles')
       .select('id, name')
       .eq('role', 'se')
       .order('name')
-    setSalesEngineers(data || [])
+    setSalesEngineers((data || []).filter(se => !EXCLUDED_SE_IDS.includes(se.id)))
   }
 
   const fetchAccount = async () => {
