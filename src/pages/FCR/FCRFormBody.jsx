@@ -95,10 +95,14 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
       status: p.status || '',
       next_steps: '',
     }
+    // Pipeline projects still at "Bidding" status are early-stage --
+    // imported into Qualified / Identified rather than Under Negotiation,
+    // which is reserved for deals that have moved past bidding.
+    const targetKey = (p.status || '').toLowerCase().includes('bidding') ? 'qualified' : 'primary'
     setFormData({
       project_opportunities: {
         ...formData.project_opportunities,
-        primary: [...(formData.project_opportunities?.primary || []), newRow],
+        [targetKey]: [...(formData.project_opportunities?.[targetKey] || []), newRow],
       },
     })
   }
