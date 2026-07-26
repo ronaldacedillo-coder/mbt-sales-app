@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { ROLES, canApproveFCR } from '../../utils/roles'
+import { ROLES, canApproveFCR, canCreateFCR } from '../../utils/roles'
 import { 
   Plus, 
   ClipboardCheck, 
@@ -120,10 +120,12 @@ export const FCRList = () => {
           <h1 className="text-2xl font-bold text-gray-900">Field Contact Reports</h1>
           <p className="text-gray-500 mt-1">Manage field visit reports</p>
         </div>
-        <Link to="/fcr/new" className="btn-primary flex items-center justify-center gap-2 self-start">
-          <Plus size={18} />
-          New FCR
-        </Link>
+        {canCreateFCR(role) && (
+          <Link to="/fcr/new" className="btn-primary flex items-center justify-center gap-2 self-start">
+            <Plus size={18} />
+            New FCR
+          </Link>
+        )}
       </div>
 
       <p className="text-xs text-gray-400 -mt-3">
@@ -168,11 +170,15 @@ export const FCRList = () => {
         <div className="card text-center py-16">
           <ClipboardCheck size={48} className="mx-auto text-gray-300 mb-4" />
           <h3 className="text-lg font-medium text-gray-900">No FCRs yet</h3>
-          <p className="text-gray-500 mt-1">Create your first field contact report</p>
-          <Link to="/fcr/new" className="btn-primary mt-4 inline-flex items-center gap-2">
-            <Plus size={18} />
-            Create FCR
-          </Link>
+          <p className="text-gray-500 mt-1">
+            {canCreateFCR(role) ? 'Create your first field contact report' : 'No field contact reports yet'}
+          </p>
+          {canCreateFCR(role) && (
+            <Link to="/fcr/new" className="btn-primary mt-4 inline-flex items-center gap-2">
+              <Plus size={18} />
+              Create FCR
+            </Link>
+          )}
         </div>
       ) : (
         <div className="space-y-3">

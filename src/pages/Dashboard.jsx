@@ -12,7 +12,7 @@ import {
   AlertCircle,
   ArrowRight
 } from 'lucide-react'
-import { ROLES } from '../utils/roles'
+import { ROLES, canCreateAccount, canCreateFCR } from '../utils/roles'
 import { format, parseISO, differenceInCalendarDays, addDays, startOfMonth } from 'date-fns'
 
 const LEADERSHIP_ROLES = [ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD]
@@ -346,13 +346,15 @@ export const Dashboard = () => {
       <div className="card">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-          <QuickActionCard
-            icon={Building2}
-            label="Add Account"
-            description="Profile a prospect first"
-            link="/accounts/new"
-            color="emerald"
-          />
+          {canCreateAccount(role) && (
+            <QuickActionCard
+              icon={Building2}
+              label="Add Account"
+              description="Profile a prospect first"
+              link="/accounts/new"
+              color="emerald"
+            />
+          )}
           <QuickActionCard
             icon={Calendar}
             label="New MCP (Plan)"
@@ -360,13 +362,15 @@ export const Dashboard = () => {
             link="/itinerary/new"
             color="blue"
           />
-          <QuickActionCard
-            icon={ClipboardCheck}
-            label="New FCR"
-            description="Log a field visit"
-            link="/fcr/new"
-            color="amber"
-          />
+          {canCreateFCR(role) && (
+            <QuickActionCard
+              icon={ClipboardCheck}
+              label="New FCR"
+              description="Log a field visit"
+              link="/fcr/new"
+              color="amber"
+            />
+          )}
           <QuickActionCard
             icon={Archive}
             label="MCP (Actual)"

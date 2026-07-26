@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { 
-  Plus, 
-  Building2, 
-  Search, 
+import { canCreateAccount } from '../../utils/roles'
+import {
+  Plus,
+  Building2,
+  Search,
   MapPin,
   Factory,
   ChevronRight,
@@ -14,7 +15,7 @@ import {
 } from 'lucide-react'
 
 export const AccountList = () => {
-  const { user } = useAuth()
+  const { user, role } = useAuth()
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -73,10 +74,12 @@ export const AccountList = () => {
           <h1 className="text-2xl font-bold text-gray-900">Accounts</h1>
           <p className="text-gray-500 mt-1">Manage your prospect accounts</p>
         </div>
-        <Link to="/accounts/new" className="btn-primary flex items-center justify-center gap-2 self-start">
-          <Plus size={18} />
-          Add Account
-        </Link>
+        {canCreateAccount(role) && (
+          <Link to="/accounts/new" className="btn-primary flex items-center justify-center gap-2 self-start">
+            <Plus size={18} />
+            Add Account
+          </Link>
+        )}
       </div>
 
       {/* Filters */}
@@ -117,11 +120,15 @@ export const AccountList = () => {
         <div className="card text-center py-16">
           <Building2 size={48} className="mx-auto text-gray-300 mb-4" />
           <h3 className="text-lg font-medium text-gray-900">No accounts yet</h3>
-          <p className="text-gray-500 mt-1">Add your first prospect account to get started</p>
-          <Link to="/accounts/new" className="btn-primary mt-4 inline-flex items-center gap-2">
-            <Plus size={18} />
-            Add Account
-          </Link>
+          <p className="text-gray-500 mt-1">
+            {canCreateAccount(role) ? 'Add your first prospect account to get started' : 'No accounts have been added yet'}
+          </p>
+          {canCreateAccount(role) && (
+            <Link to="/accounts/new" className="btn-primary mt-4 inline-flex items-center gap-2">
+              <Plus size={18} />
+              Add Account
+            </Link>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
