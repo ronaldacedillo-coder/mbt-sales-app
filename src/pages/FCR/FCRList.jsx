@@ -126,6 +126,10 @@ export const FCRList = () => {
         </Link>
       </div>
 
+      <p className="text-xs text-gray-400 -mt-3">
+        Only acknowledged FCRs are sent to the NSM or Commercial AC Head for approval. Only approved FCRs can be downloaded as a PDF.
+      </p>
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
@@ -191,7 +195,11 @@ export const FCRList = () => {
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
                         Awaiting Acknowledgment
                       </span>
-                    ) : null}
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500 border border-gray-200">
+                        Not Yet Acknowledged
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">

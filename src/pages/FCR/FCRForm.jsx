@@ -129,6 +129,10 @@ export const FCRForm = () => {
       setError('Please fill in the meeting attendee\'s name and email before submitting -- needed to request their acknowledgment of the minutes')
       return
     }
+    if (record.ack_status !== 'acknowledged') {
+      setError('This FCR can\'t be submitted for approval yet -- only FCRs acknowledged by the account are sent to the NSM or Commercial AC Head. Send the acknowledgment request below first.')
+      return
+    }
     handleSave('pending_approval')
   }
 
@@ -230,9 +234,9 @@ export const FCRForm = () => {
           {isEdit && (
             <button
               onClick={handleExportPdf}
-              disabled={exportingPdf || record.ack_status !== 'acknowledged'}
+              disabled={exportingPdf || record.status !== 'approved'}
               className="btn-secondary flex items-center gap-2 print:hidden disabled:opacity-40 disabled:cursor-not-allowed"
-              title={record.ack_status === 'acknowledged' ? 'Downloads a PDF of this FCR' : 'The account must acknowledge the meeting minutes before this FCR can be exported'}
+              title={record.status === 'approved' ? 'Downloads a PDF of this FCR' : 'This FCR can be exported once the NSM or Commercial AC Head has approved it'}
             >
               <FileText size={16} /> {exportingPdf ? 'Exporting...' : 'Export PDF'}
             </button>
@@ -306,7 +310,7 @@ export const FCRForm = () => {
             )}
           </div>
           <p className="text-xs text-gray-400 mt-3">
-            Sends an email directly to the attendee with a one-click "Confirm Meeting Happened" button. The PDF export above unlocks once they click it{record.status === 'draft' ? ', and this FCR is automatically submitted for approval at the same time' : ''}.
+            Sends an email directly to the attendee with a one-click "Confirm Meeting Happened" button{record.status === 'draft' ? '. Once they click it, this FCR is automatically submitted to the NSM or Commercial AC Head for approval' : ''} -- only acknowledged FCRs are sent for approval, and the PDF export above only unlocks once it's approved.
           </p>
         </div>
       )}
@@ -318,7 +322,12 @@ export const FCRForm = () => {
             <Save size={16} />
             {saving ? 'Saving...' : 'Save Draft'}
           </button>
-          <button onClick={handleSubmitForApproval} disabled={saving} className="btn-primary flex items-center gap-2">
+          <button
+            onClick={handleSubmitForApproval}
+            disabled={saving || record.ack_status !== 'acknowledged'}
+            className="btn-primary flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+            title={record.ack_status === 'acknowledged' ? '' : 'The account must acknowledge the meeting minutes first (see below) -- only acknowledged FCRs are sent for approval'}
+          >
             <Send size={16} />
             {saving ? 'Submitting...' : 'Submit for Approval'}
           </button>
