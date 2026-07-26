@@ -160,12 +160,16 @@ export const FCRForm = () => {
 
   // The account acknowledges on their own device/session, so the SE's tab
   // doesn't hear about it automatically -- this just re-reads the row.
+  // `status` is included because acknowledging also auto-submits a still-draft
+  // FCR for approval (see the acknowledge_fcr RPC) -- refreshing needs to
+  // pick that up too, not just ack_status, so the form correctly flips to
+  // read-only once it enters the approval queue.
   const handleCheckAckStatus = async () => {
     setCheckingAck(true)
     try {
       const { data, error } = await supabase
         .from('fcrs')
-        .select('ack_status, acknowledged_at, acknowledged_name')
+        .select('ack_status, acknowledged_at, acknowledged_name, status')
         .eq('id', id)
         .single()
       if (error) throw error
@@ -302,7 +306,7 @@ export const FCRForm = () => {
             )}
           </div>
           <p className="text-xs text-gray-400 mt-3">
-            Sends an email directly to the attendee with a one-click "Confirm Meeting Happened" button. The PDF export above unlocks once they click it.
+            Sends an email directly to the attendee with a one-click "Confirm Meeting Happened" button. The PDF export above unlocks once they click it{record.status === 'draft' ? ', and this FCR is automatically submitted for approval at the same time' : ''}.
           </p>
         </div>
       )}
