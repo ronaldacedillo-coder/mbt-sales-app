@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { canCreateAccount } from '../../utils/roles'
+import { ROLES, canCreateAccount } from '../../utils/roles'
 import {
   Plus,
   Building2,
@@ -11,7 +11,8 @@ import {
   Factory,
   ChevronRight,
   Star,
-  Filter
+  Filter,
+  Trash2
 } from 'lucide-react'
 
 export const AccountList = () => {
@@ -42,6 +43,24 @@ export const AccountList = () => {
       console.error('Error fetching accounts:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Commercial AC Head only -- covered by the accounts_delete_owner_or_manager
+  // RLS policy (which also allows NSM and the account's own creator, but the
+  // UI only surfaces this button for the Head to keep it as a deliberate,
+  // top-level cleanup action rather than something reps do day-to-day).
+  const handleDelete = async (e, id) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!confirm('Delete this account? This cannot be undone.')) return
+    try {
+      const { error } = await supabase.from('accounts').delete().eq('id', id)
+      if (error) throw error
+      setAccounts(prev => prev.filter(a => a.id !== id))
+    } catch (error) {
+      console.error('Error deleting account:', error)
+      alert('Failed to delete account')
     }
   }
 
@@ -142,9 +161,20 @@ export const AccountList = () => {
                 <div className="w-10 h-10 bg-primary-100 rounded-lg flex items-center justify-center">
                   <Building2 size={20} className="text-primary-600" />
                 </div>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(account.priority)}`}>
-                  {account.priority?.charAt(0).toUpperCase() + account.priority?.slice(1) || 'Normal'}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(account.priority)}`}>
+                    {account.priority?.charAt(0).toUpperCase() + account.priority?.slice(1) || 'Normal'}
+                  </span>
+                  {role === ROLES.COMMERCIAL_AC_HEAD && (
+                    <button
+                      onClick={(e) => handleDelete(e, account.id)}
+                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete account"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-primary-600 transition-colors flex items-center gap-2">
