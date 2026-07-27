@@ -37,6 +37,7 @@ export const Dashboard = () => {
   const [recentFCRs, setRecentFCRs] = useState([])
   const [followUps, setFollowUps] = useState([])
   const [teamStats, setTeamStats] = useState({ approvedFCRs: 0, rejectedFCRs: 0, overdueFollowUps: 0 })
+  const [teamMembers, setTeamMembers] = useState([])
   const [approvedPlan, setApprovedPlan] = useState(null)
   const [planAccounts, setPlanAccounts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -138,18 +139,52 @@ export const Dashboard = () => {
       items.sort((a, b) => a.date.localeCompare(b.date))
       setFollowUps(items)
 
-      // Leadership team-overview: NSM / Commercial AC Head / VIEWER, over
-      // the reports they already have visibility into above
+      // Leadership team-overview: NSM sees the MBT Sales Team (Sales
+      // Engineers); Commercial AC Head and VIEWER see both the MBT Sales
+      // and BD Teams. Fetched separately from the role-scoped `fcrs`/
+      // `itineraries` above (those stay approval-queue-scoped for Head, e.g.
+      // BD/NSM only) so this consolidated view and the per-member table
+      // below always agree with each other regardless of role.
       if (TEAM_OVERVIEW_ROLES.includes(role)) {
-        const overdueFollowUps = (fcrs || []).filter(f =>
+        const memberRoles = role === ROLES.NSM ? ['se'] : ['se', 'bd']
+        const { data: members } = await supabase
+          .from('user_profiles')
+          .select('id, name, role')
+          .in('role', memberRoles)
+          .order('name')
+
+        const memberIds = (members || []).map(m => m.id)
+
+        const [{ data: memberFcrs }, { data: memberPlans }] = memberIds.length
+          ? await Promise.all([
+              supabase.from('fcrs').select('created_by, status, follow_up_date').in('created_by', memberIds),
+              supabase.from('itineraries').select('created_by, status').in('created_by', memberIds).eq('month', monthStart),
+            ])
+          : [{ data: [] }, { data: [] }]
+
+        const overdueFollowUps = (memberFcrs || []).filter(f =>
           f.follow_up_date && f.status === 'approved' && parseISO(f.follow_up_date) < today
         ).length
 
         setTeamStats({
-          approvedFCRs: (fcrs || []).filter(f => f.status === 'approved').length,
-          rejectedFCRs: (fcrs || []).filter(f => f.status === 'rejected').length,
+          approvedFCRs: (memberFcrs || []).filter(f => f.status === 'approved').length,
+          rejectedFCRs: (memberFcrs || []).filter(f => f.status === 'rejected').length,
           overdueFollowUps,
         })
+
+        setTeamMembers((members || []).map(m => {
+          const mFcrs = (memberFcrs || []).filter(f => f.created_by === m.id)
+          const plan = (memberPlans || []).find(p => p.created_by === m.id)
+          return {
+            id: m.id,
+            name: m.name,
+            role: m.role,
+            fcrApproved: mFcrs.filter(f => f.status === 'approved').length,
+            fcrPending: mFcrs.filter(f => f.status === 'pending_approval').length,
+            fcrRejected: mFcrs.filter(f => f.status === 'rejected').length,
+            planStatus: plan ? plan.status : 'none',
+          }
+        }))
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error)
@@ -164,12 +199,14 @@ export const Dashboard = () => {
       pending_approval: 'bg-amber-100 text-amber-800',
       approved: 'bg-emerald-100 text-emerald-800',
       rejected: 'bg-red-100 text-red-800',
+      none: 'bg-gray-100 text-gray-500',
     }
     const labels = {
       draft: 'Draft',
       pending_approval: 'Pending Approval',
       approved: 'Approved',
       rejected: 'Rejected',
+      none: 'No Plan Yet',
     }
     return (
       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${styles[status] || styles.draft}`}>
@@ -177,6 +214,10 @@ export const Dashboard = () => {
       </span>
     )
   }
+
+  const TEAM_MEMBER_ROLE_LABELS = { se: 'Sales Engineer', bd: 'BD Engineer' }
+  const salesTeamMembers = teamMembers.filter(m => m.role === 'se')
+  const bdTeamMembers = teamMembers.filter(m => m.role === 'bd')
 
   if (loading) {
     return (
@@ -237,9 +278,12 @@ export const Dashboard = () => {
         </div>
       )}
 
-      {role && LEADERSHIP_ROLES.includes(role) && (
+      {role && TEAM_OVERVIEW_ROLES.includes(role) && (
         <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Overview</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-1">Team Overview</h3>
+          <p className="text-sm text-gray-500 mb-4">
+            {role === ROLES.NSM ? 'Consolidated data for the MBT Sales Team' : 'Consolidated data for the MBT Sales and BD Teams'}
+          </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-4 bg-emerald-50 rounded-lg">
               <p className="text-2xl font-bold text-emerald-700">{teamStats.approvedFCRs}</p>
@@ -254,6 +298,17 @@ export const Dashboard = () => {
               <p className="text-sm text-amber-700 mt-0.5">Overdue Follow-ups</p>
             </div>
           </div>
+
+          {teamMembers.length === 0 ? (
+            <p className="text-sm text-gray-400 mt-4">No team members found.</p>
+          ) : (
+            <div className="mt-6 space-y-6">
+              <TeamMemberTable title="MBT Sales Team" members={salesTeamMembers} getStatusBadge={getStatusBadge} />
+              {role !== ROLES.NSM && (
+                <TeamMemberTable title="BD Team" members={bdTeamMembers} getStatusBadge={getStatusBadge} />
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -393,6 +448,45 @@ export const Dashboard = () => {
             color="purple"
           />
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Per-member breakdown shown inside the Team Overview card -- one row per
+// Sales/BD Engineer with their FCR counts by status and this month's MCP
+// (Plan) status. Hidden entirely (returns null) when there are no members
+// of that team so NSM (Sales-only) doesn't render an empty "BD Team"
+// section that never applies to them.
+const TeamMemberTable = ({ title, members, getStatusBadge }) => {
+  if (members.length === 0) return null
+
+  return (
+    <div>
+      <h4 className="text-sm font-semibold text-gray-700 mb-2">{title}</h4>
+      <div className="overflow-x-auto -mx-2">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-gray-500 border-b border-gray-100">
+              <th className="py-2 px-2 font-medium">Name</th>
+              <th className="py-2 px-2 font-medium">FCRs Approved</th>
+              <th className="py-2 px-2 font-medium">FCRs Pending</th>
+              <th className="py-2 px-2 font-medium">FCRs Rejected</th>
+              <th className="py-2 px-2 font-medium">This Month's MCP (Plan)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {members.map(m => (
+              <tr key={m.id} className="border-b border-gray-50 last:border-0">
+                <td className="py-2.5 px-2 font-medium text-gray-900">{m.name}</td>
+                <td className="py-2.5 px-2 text-emerald-700">{m.fcrApproved}</td>
+                <td className="py-2.5 px-2 text-amber-700">{m.fcrPending}</td>
+                <td className="py-2.5 px-2 text-red-700">{m.fcrRejected}</td>
+                <td className="py-2.5 px-2">{getStatusBadge(m.planStatus)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )
