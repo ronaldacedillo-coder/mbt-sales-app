@@ -4,6 +4,7 @@ import { Pencil } from 'lucide-react'
 import { EditableTable } from '../../components/EditableTable'
 import { monthKeys, monthLabels, PROJECT_REP_LABEL } from './fcrTemplates'
 import { PipelineProjectsPanel } from '../Accounts/PipelineProjectsPanel'
+import { AccountHistoryPanel } from './AccountHistoryPanel'
 import { TRADE_TERMS_LABELS } from '../../utils/accounts'
 import { buildFcrMinutesText } from '../../lib/fcrMinutes'
 
@@ -200,6 +201,17 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
             <p className="text-xs text-gray-400 mt-1">Not seeing the account you need? It needs a completed profile (Trade Terms filled in) first -- <Link to="/accounts/new" className="underline">create it here</Link>.</p>
           )}
         </div>
+      )}
+
+      {/* Previous visits to this account + suggested discussion points --
+          shown as soon as an account is selected, before the rest of the
+          form, so the rep has context before writing this visit up. */}
+      {record.account_id && (
+        <AccountHistoryPanel
+          accountId={record.account_id}
+          excludeFcrId={record.id}
+          teamType={teamType}
+        />
       )}
 
       {/* Customer Information -- read-only, sourced from the account profile */}
