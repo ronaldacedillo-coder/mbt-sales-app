@@ -147,10 +147,16 @@ export const Dashboard = () => {
       // below always agree with each other regardless of role.
       if (TEAM_OVERVIEW_ROLES.includes(role)) {
         const memberRoles = role === ROLES.NSM ? ['se'] : ['se', 'bd']
+        // Exclude anyone downgraded to view-only in this app via
+        // sales_app_role_override (e.g. someone whose Pipeline role is
+        // still 'se'/'bd' but who no longer actively works this app) --
+        // they show up as VIEWER elsewhere, not as a working team member
+        // with FCRs/MCP (Plan)s to report on here.
         const { data: members } = await supabase
           .from('user_profiles')
           .select('id, name, role')
           .in('role', memberRoles)
+          .or('sales_app_role_override.is.null,sales_app_role_override.neq.viewer')
           .order('name')
 
         const memberIds = (members || []).map(m => m.id)
