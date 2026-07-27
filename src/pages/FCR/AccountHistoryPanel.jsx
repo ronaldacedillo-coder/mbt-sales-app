@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { buildDiscussionSuggestions } from '../../lib/fcrSuggestions'
 import { EditableTable } from '../../components/EditableTable'
 import { format, parseISO } from 'date-fns'
-import { History, ChevronLeft, ChevronRight, Lightbulb, Loader2 } from 'lucide-react'
+import { History, ChevronLeft, ChevronRight, Lightbulb, Loader2, Sparkles, RefreshCw } from 'lucide-react'
 
 const projectColumns = [
   { key: 'project_name_owner', label: 'Project / Owner' },
@@ -39,11 +39,14 @@ const StatusPill = ({ children, tone = 'gray' }) => {
 // scopes the query to FCRs the current user can see (their own, or their
 // direct reports' if they're the approver), so this naturally reads as
 // "your visit history with this account."
-export const AccountHistoryPanel = ({ accountId, excludeFcrId, teamType }) => {
+export const AccountHistoryPanel = ({ accountId, excludeFcrId, teamType, companyName }) => {
   const [fcrs, setFcrs] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [page, setPage] = useState(0)
+  const [aiSuggestions, setAiSuggestions] = useState(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiError, setAiError] = useState('')
 
   useEffect(() => {
     if (accountId) fetchHistory()
@@ -54,6 +57,8 @@ export const AccountHistoryPanel = ({ accountId, excludeFcrId, teamType }) => {
     setLoading(true)
     setError('')
     setPage(0)
+    setAiSuggestions(null)
+    setAiError('')
     try {
       let query = supabase
         .from('fcrs')
@@ -69,6 +74,42 @@ export const AccountHistoryPanel = ({ accountId, excludeFcrId, teamType }) => {
       setError(err.message || 'Failed to load visit history')
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Sends the same past-visit data the rule-based suggestions use to the
+  // suggest-fcr-discussion Edge Function, which calls Gemini and returns
+  // real AI-generated talking points. Kept as a separate, opt-in step (not
+  // automatic) so there's no surprise API usage, and clearly labeled in the
+  // UI as AI-generated -- distinct from the always-on rule-based list above.
+  const handleGenerateAI = async () => {
+    setAiLoading(true)
+    setAiError('')
+    try {
+      const pastVisits = fcrs.map(fcr => {
+        const po = fcr.form_data?.project_opportunities || {}
+        return {
+          visitDate: fcr.visit_date,
+          coverageNotes: fcr.coverage_notes || '',
+          getBackItems: fcr.form_data?.get_back_items || '',
+          projectOpportunities: [
+            ...(po.primary || []).map(r => ({ ...r, section: po.primary_label || 'Primary' })),
+            ...(po.qualified || []).map(r => ({ ...r, section: 'Qualified / Identified' })),
+          ].filter(r => (r.project_name_owner || '').trim()),
+          competitiveCheck: (fcr.form_data?.competitive_check || []).filter(r => (r.brand || '').trim()),
+        }
+      })
+
+      const { data, error } = await supabase.functions.invoke('suggest-fcr-discussion', {
+        body: { companyName: companyName || '', teamType, pastVisits },
+      })
+      if (error) throw error
+      if (data?.error) throw new Error(data.error)
+      setAiSuggestions(data?.suggestions || [])
+    } catch (err) {
+      setAiError(err.message || 'Failed to generate AI suggestions')
+    } finally {
+      setAiLoading(false)
     }
   }
 
@@ -116,6 +157,62 @@ export const AccountHistoryPanel = ({ accountId, excludeFcrId, teamType }) => {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* AI-Generated Suggestions -- real Gemini call, opt-in via button.
+          Kept visually distinct from the rule-based card above and labeled
+          "AI-Generated (Gemini)" so it's never confused with the rule-based
+          summary -- both stay honest about what they are. */}
+      {fcrs.length > 0 && (
+        <div className="card border-violet-100 bg-violet-50/30">
+          <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center gap-2">
+              <Sparkles size={16} className="text-violet-600" />
+              <h3 className="text-sm font-semibold text-gray-900">AI-Generated Suggestions</h3>
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded">
+                Gemini
+              </span>
+            </div>
+            <button
+              onClick={handleGenerateAI}
+              disabled={aiLoading}
+              className="btn-secondary text-xs py-1 px-2 flex items-center gap-1 disabled:opacity-50"
+            >
+              {aiLoading ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : aiSuggestions ? (
+                <RefreshCw size={13} />
+              ) : (
+                <Sparkles size={13} />
+              )}
+              {aiSuggestions ? 'Regenerate' : 'Generate AI Suggestions'}
+            </button>
+          </div>
+          <p className="text-xs text-gray-400 mb-3">
+            Sent to Google's Gemini model along with this account's past visit data to draft talking points -- genuinely AI-generated, not the rule-based list above. Review before relying on it; it can miss context or phrase things oddly.
+          </p>
+
+          {aiError && (
+            <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg p-2 mb-2">{aiError}</p>
+          )}
+
+          {aiSuggestions && aiSuggestions.length === 0 && !aiError && (
+            <p className="text-sm text-gray-400">Gemini didn't return any suggestions for this account's history.</p>
+          )}
+
+          {aiSuggestions && aiSuggestions.length > 0 && (
+            <ul className="space-y-2">
+              {aiSuggestions.map((s, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm">
+                  <span className="mt-0.5 flex-shrink-0 text-[10px] font-semibold uppercase tracking-wide text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded">
+                    {s.category || 'Suggestion'}
+                  </span>
+                  <span className="text-gray-700">{s.text}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
 

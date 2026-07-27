@@ -211,6 +211,7 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
           accountId={record.account_id}
           excludeFcrId={record.id}
           teamType={teamType}
+          companyName={customerInfo.company_name}
         />
       )}
 
