@@ -16,6 +16,8 @@ import {
   X
 } from 'lucide-react'
 import { ROLES } from '../utils/roles'
+import { RonAppsLogo } from './RonAppsLogo'
+import { AboutModal } from './AboutModal'
 
 const PIPELINE_APP_URL = 'https://mbt-pipeline.netlify.app/'
 
@@ -29,6 +31,7 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
   const location = useLocation()
   const [pendingFCRs, setPendingFCRs] = useState(0)
   const [pendingItineraries, setPendingItineraries] = useState(0)
+  const [aboutOpen, setAboutOpen] = useState(false)
 
   useEffect(() => {
     if (!APPROVER_ROLES.includes(role)) return
@@ -142,15 +145,26 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
           })}
         </nav>
 
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-gray-200 space-y-3">
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Team</p>
             <p className="text-sm font-semibold text-gray-900 mt-1">
               {profile?.team_name || 'Not Assigned'}
             </p>
           </div>
+
+          <button
+            onClick={() => setAboutOpen(true)}
+            className="w-full flex items-center gap-2 px-1 py-1 rounded-lg text-xs text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <RonAppsLogo size={18} />
+            <span>Built by RonApps</span>
+            <span className="ml-auto underline">About</span>
+          </button>
         </div>
       </aside>
+
+      {aboutOpen && <AboutModal onClose={() => setAboutOpen(false)} />}
     </>
   )
 }
