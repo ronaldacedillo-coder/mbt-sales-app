@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { MonthCalendar } from '../itinerary/MonthCalendar'
-import { fetchAcknowledgedVisits, buildMcpActualSnapshot } from '../../lib/mcpActual'
+import { fetchAcknowledgedVisits, buildMcpActualSnapshot, fetchDailyNotes, saveDailyNote } from '../../lib/mcpActual'
 import { downloadMCPPdf } from '../../lib/mcpPdf'
 import { format, parseISO, startOfMonth } from 'date-fns'
 import { FileText, ClipboardCheck, Archive, AlertCircle } from 'lucide-react'
@@ -18,10 +18,12 @@ export const MCPActual = () => {
   const [month, setMonth] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
   const [visits, setVisits] = useState([])
   const [accounts, setAccounts] = useState([])
+  const [dailyNotes, setDailyNotes] = useState({})
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const noteSaveTimers = useRef({})
 
   useEffect(() => {
     if (!user) return
@@ -33,17 +35,32 @@ export const MCPActual = () => {
     setLoading(true)
     setError('')
     try {
-      const [visitData, { data: accountData }] = await Promise.all([
+      const [visitData, { data: accountData }, notesData] = await Promise.all([
         fetchAcknowledgedVisits({ userId: user.id, month }),
         supabase.from('accounts').select('id, company_name'),
+        fetchDailyNotes({ userId: user.id, month }),
       ])
       setVisits(visitData)
       setAccounts(accountData || [])
+      setDailyNotes(notesData)
     } catch (err) {
       setError(err.message || 'Failed to load acknowledged visits')
     } finally {
       setLoading(false)
     }
+  }
+
+  // Updates the on-screen note immediately (so typing feels responsive) and
+  // debounces the actual save so we're not writing to the DB on every
+  // keystroke -- one save per date, 700ms after the user stops typing there.
+  const handleNoteChange = (dateStr, text) => {
+    setDailyNotes(prev => ({ ...prev, [dateStr]: text }))
+    clearTimeout(noteSaveTimers.current[dateStr])
+    noteSaveTimers.current[dateStr] = setTimeout(() => {
+      saveDailyNote({ userId: user.id, date: dateStr, note: text }).catch(err => {
+        setError(err.message || 'Failed to save note')
+      })
+    }, 700)
   }
 
   const handleGenerateAndExport = async () => {
@@ -52,7 +69,7 @@ export const MCPActual = () => {
     setSuccess('')
     try {
       const submitterName = profile?.full_name || ''
-      const snapshot = buildMcpActualSnapshot({ month, visits, accounts, submitterName })
+      const snapshot = buildMcpActualSnapshot({ month, visits, accounts, submitterName, dailyNotes })
 
       const { error: insertError } = await supabase.from('mcp_archive').insert([{
         month,
@@ -67,6 +84,7 @@ export const MCPActual = () => {
         month,
         visits,
         accounts,
+        dailyNotes,
         submitterName,
         approverName: '',
         title: 'MONTHLY COVERAGE PLAN (ACTUAL)',
@@ -138,7 +156,17 @@ export const MCPActual = () => {
       ) : (
         <div className="card">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">{format(parseISO(month), 'MMMM yyyy')}</h3>
-          <MonthCalendar month={month} visits={visits} accounts={accounts} />
+          <p className="text-xs text-gray-400 mb-3">
+            Add a note on any day for things an FCR wouldn't capture -- on leave, a site visit, out of office, etc.
+          </p>
+          <MonthCalendar
+            month={month}
+            visits={visits}
+            accounts={accounts}
+            dailyNotes={dailyNotes}
+            onNoteChange={handleNoteChange}
+            notesEditable
+          />
         </div>
       )}
     </div>

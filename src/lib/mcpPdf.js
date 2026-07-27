@@ -17,6 +17,7 @@ const buildMCPDoc = async ({
   notes,
   visits,
   accounts,
+  dailyNotes = {},
   submitterName,
   approverName,
   title = 'MONTHLY COVERAGE PLAN',
@@ -58,7 +59,8 @@ const buildMCPDoc = async ({
       const dayNum = format(parseISO(dateStr), 'd')
       const am = (byDay[dateStr]?.AM || []).join('\n')
       const pm = (byDay[dateStr]?.PM || []).join('\n')
-      return `${dayNum}\n\nAM: ${am}\n\nPM: ${pm}`
+      const other = dailyNotes[dateStr]
+      return `${dayNum}\n\nAM: ${am}\n\nPM: ${pm}${other ? `\n\nOther: ${other}` : ''}`
     })
     return [String(week.weekNum), ...dayCells, 'Forecast:\n\n\nActual:', 'Forecast:\n\n\nActual:']
   })

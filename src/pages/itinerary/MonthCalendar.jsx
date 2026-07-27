@@ -20,7 +20,23 @@ const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 // clicking a chip opens that visit in the editable list below (if
 // onSelectVisit is given), and clicking empty space on a day adds a new
 // visit pre-filled with that date (if onDayClick is given and editable).
-export const MonthCalendar = ({ month, visits = [], accounts = [], onDayClick, onSelectVisit, editable = false }) => {
+//
+// notesEditable (MCP (Actual) only) adds a small free-text box under the
+// FCR-derived visit chips for each day -- for days that don't have their own
+// FCR (leave, a site visit with no formal report, etc). dailyNotes is a
+// { 'yyyy-MM-dd': text } map; onNoteChange(dateStr, text) is called on every
+// keystroke so the caller can debounce its own save.
+export const MonthCalendar = ({
+  month,
+  visits = [],
+  accounts = [],
+  onDayClick,
+  onSelectVisit,
+  editable = false,
+  dailyNotes = {},
+  onNoteChange,
+  notesEditable = false,
+}) => {
   const monthDate = typeof month === 'string' ? parseISO(month) : month
   const gridStart = startOfWeek(startOfMonth(monthDate))
   const gridEnd = endOfWeek(endOfMonth(monthDate))
@@ -54,7 +70,7 @@ export const MonthCalendar = ({ month, visits = [], accounts = [], onDayClick, o
             <div
               key={dateStr}
               onClick={() => editable && onDayClick && onDayClick(dateStr)}
-              className={`min-h-[76px] sm:min-h-[92px] border-b border-r border-gray-100 print:border-black p-1.5 align-top ${
+              className={`${notesEditable ? 'min-h-[104px] sm:min-h-[122px]' : 'min-h-[76px] sm:min-h-[92px]'} border-b border-r border-gray-100 print:border-black p-1.5 align-top ${
                 inMonth ? 'bg-white' : 'bg-gray-50 print:bg-white'
               } ${editable ? 'cursor-pointer hover:bg-primary-50/40' : ''}`}
             >
@@ -94,6 +110,16 @@ export const MonthCalendar = ({ month, visits = [], accounts = [], onDayClick, o
                   )
                 })}
               </div>
+              {notesEditable && inMonth && (
+                <textarea
+                  value={dailyNotes[dateStr] || ''}
+                  onChange={(e) => onNoteChange && onNoteChange(dateStr, e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  placeholder="Leave, site visit, etc."
+                  rows={2}
+                  className="mt-1 w-full text-[10px] leading-tight border border-dashed border-gray-200 rounded px-1 py-0.5 resize-none bg-white placeholder:text-gray-300 focus:outline-none focus:border-primary-300 print:hidden"
+                />
+              )}
             </div>
           )
         })}

@@ -27,6 +27,7 @@ export const downloadWeeklyReportZip = async ({ acknowledgedFcrs, mcpEntries, la
       month: snapshot.month || entry.month,
       visits: snapshot.visits || [],
       accounts: accountsFromSnapshot(snapshot),
+      dailyNotes: snapshot.dailyNotes || {},
       submitterName: snapshot.submitterName,
       approverName: '',
       title: 'MONTHLY COVERAGE PLAN (ACTUAL)',
