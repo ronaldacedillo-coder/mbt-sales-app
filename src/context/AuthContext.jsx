@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
-import { ROLES, mapPipelineRole } from '../utils/roles'
+import { ROLES, mapProfileRole } from '../utils/roles'
 
 const AuthContext = createContext()
 
@@ -48,7 +48,9 @@ export const AuthProvider = ({ children }) => {
   // 'head', plus 'pm'/'director' for Pipeline-only staff) get mapped to the
   // Sales app's own ROLES.* here, and `full_name` is kept as an alias for
   // Pipeline's `name` column so existing `profile?.full_name` reads
-  // elsewhere in the app don't need to change.
+  // elsewhere in the app don't need to change. `sales_app_role_override`
+  // (see roles.js) lets someone be forced to read-only in this app alone
+  // without touching their Pipeline role.
   const fetchProfile = async (userId) => {
     const { data } = await supabase
       .from('user_profiles')
@@ -63,7 +65,7 @@ export const AuthProvider = ({ children }) => {
       ...data,
       full_name: data.name,
       pipeline_role: data.role,
-      role: mapPipelineRole(data.role),
+      role: mapProfileRole(data.role, data.sales_app_role_override),
     })
   }
 

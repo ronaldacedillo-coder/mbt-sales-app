@@ -31,6 +31,16 @@ const PIPELINE_ROLE_MAP = {
 // callers should treat null as "no access to this app".
 export const mapPipelineRole = (pipelineRole) => PIPELINE_ROLE_MAP[pipelineRole] || null
 
+// Some people need to be read-only in THIS app specifically while keeping
+// their normal role (and full access) in MBT Project Pipeline -- e.g. an
+// active Sales/BD Engineer moved to view-only here without touching their
+// shared Pipeline role/title. `sales_app_role_override` on user_profiles is
+// a Sales-app-only column Pipeline never reads, so setting it has zero
+// effect there. Currently the only supported value is 'viewer'; anything
+// else (including null) falls back to the normal Pipeline role mapping.
+export const mapProfileRole = (pipelineRole, override) =>
+  override === 'viewer' ? ROLES.VIEWER : mapPipelineRole(pipelineRole)
+
 export const ROLE_LABELS = {
   [ROLES.SALES_ENGINEER]: 'Sales Engineer',
   [ROLES.BD_ENGINEER]: 'BD Engineer',
