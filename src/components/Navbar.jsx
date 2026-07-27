@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabase'
 import { Bell, User, LogOut, Menu } from 'lucide-react'
-import { ROLE_LABELS, ROLES } from '../utils/roles'
+import { ROLES, getDisplayTitle } from '../utils/roles'
 
 const APPROVER_ROLES = [ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD]
 
@@ -88,7 +88,7 @@ export const Navbar = ({ onMenuClick = () => {} }) => {
           </div>
           <div className="text-right hidden sm:block">
             <p className="text-sm font-medium text-gray-900">{profile?.full_name || 'User'}</p>
-            <p className="text-xs text-gray-500">{ROLE_LABELS[profile?.role] || ''}</p>
+            <p className="text-xs text-gray-500">{profile ? getDisplayTitle(profile.role, profile.pipeline_role) : ''}</p>
           </div>
           <button
             onClick={signOut}

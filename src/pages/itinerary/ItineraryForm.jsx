@@ -26,6 +26,10 @@ export const ItineraryForm = () => {
   const navigate = useNavigate()
   const { user, role } = useAuth()
   const isEdit = Boolean(id)
+  // VIEWER (Product Manager / HVAC Director) can open any MCP (Plan) to
+  // look at it, but never edits one -- every input, calendar drag, and
+  // action button below is disabled/hidden for them.
+  const readOnly = role === ROLES.VIEWER
 
   const [formData, setFormData] = useState({
     title: '',
@@ -201,11 +205,16 @@ export const ItineraryForm = () => {
           <ArrowLeft size={20} />
         </button>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-gray-900">
-            {isEdit ? 'Edit MCP (Plan)' : 'New MCP (Plan)'}
+          <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            {isEdit ? (readOnly ? 'MCP (Plan)' : 'Edit MCP (Plan)') : 'New MCP (Plan)'}
+            {readOnly && (
+              <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2.5 py-1 rounded-full">
+                Read-only
+              </span>
+            )}
           </h1>
           <p className="text-gray-500 text-sm">
-            {isEdit ? 'Update your proposed monthly schedule' : 'Propose your monthly visit schedule for approval'}
+            {readOnly ? 'Viewing this monthly schedule' : isEdit ? 'Update your proposed monthly schedule' : 'Propose your monthly visit schedule for approval'}
           </p>
         </div>
       </div>
@@ -226,8 +235,9 @@ export const ItineraryForm = () => {
               type="text"
               value={formData.title}
               onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-              className="input"
+              className="input disabled:bg-gray-50 disabled:text-gray-500"
               placeholder="e.g., July 2026 Sales Visits"
+              disabled={readOnly}
             />
           </div>
           <div>
@@ -236,7 +246,8 @@ export const ItineraryForm = () => {
               type="month"
               value={formData.month ? format(parseISO(formData.month), 'yyyy-MM') : ''}
               onChange={(e) => setFormData(prev => ({ ...prev, month: e.target.value + '-01' }))}
-              className="input"
+              className="input disabled:bg-gray-50 disabled:text-gray-500"
+              disabled={readOnly}
             />
           </div>
         </div>
@@ -246,8 +257,9 @@ export const ItineraryForm = () => {
           <textarea
             value={formData.notes}
             onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-            className="input min-h-[80px]"
+            className="input min-h-[80px] disabled:bg-gray-50 disabled:text-gray-500"
             placeholder="General notes about this itinerary..."
+            disabled={readOnly}
           />
         </div>
       </div>
@@ -281,8 +293,8 @@ export const ItineraryForm = () => {
           month={formData.month || format(new Date(), 'yyyy-MM-dd')}
           visits={formData.visits}
           accounts={accounts}
-          editable
-          onDayClick={addVisitFromCalendar}
+          editable={!readOnly}
+          onDayClick={readOnly ? undefined : addVisitFromCalendar}
           onSelectVisit={selectVisitFromCalendar}
         />
       </div>
@@ -291,22 +303,26 @@ export const ItineraryForm = () => {
       <div className={`card ${view === 'list' ? '' : 'hidden'}`}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Planned Visits</h3>
-          <button
-            onClick={() => addVisit()}
-            className="btn-secondary flex items-center gap-2 text-sm"
-          >
-            <Plus size={16} />
-            Add Visit
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => addVisit()}
+              className="btn-secondary flex items-center gap-2 text-sm"
+            >
+              <Plus size={16} />
+              Add Visit
+            </button>
+          )}
         </div>
 
         {formData.visits.length === 0 ? (
           <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-300">
             <MapPin size={32} className="mx-auto text-gray-300 mb-2" />
             <p className="text-gray-500 text-sm">No visits planned yet</p>
-            <button onClick={() => addVisit()} className="text-primary-600 text-sm mt-1 hover:underline">
-              Add your first visit
-            </button>
+            {!readOnly && (
+              <button onClick={() => addVisit()} className="text-primary-600 text-sm mt-1 hover:underline">
+                Add your first visit
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-4">
@@ -314,25 +330,27 @@ export const ItineraryForm = () => {
               <div key={visit.id} id={`visit-${visit.id}`} className="border border-gray-200 rounded-lg p-4 bg-gray-50 scroll-mt-20">
                 <div className="flex items-center justify-between mb-3">
                   <h4 className="font-medium text-gray-900 text-sm">Visit #{index + 1}</h4>
-                  <div className="flex items-center gap-1">
-                    {visit.account_id && (
+                  {!readOnly && (
+                    <div className="flex items-center gap-1">
+                      {visit.account_id && (
+                        <button
+                          onClick={() => navigate('/fcr/new', {
+                            state: { prefill: { account_id: visit.account_id, visit_date: visit.visit_date } }
+                          })}
+                          className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          title="Create a Field Contact Report for this visit"
+                        >
+                          <ClipboardCheck size={13} /> Log FCR
+                        </button>
+                      )}
                       <button
-                        onClick={() => navigate('/fcr/new', {
-                          state: { prefill: { account_id: visit.account_id, visit_date: visit.visit_date } }
-                        })}
-                        className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
-                        title="Create a Field Contact Report for this visit"
+                        onClick={() => removeVisit(index)}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
                       >
-                        <ClipboardCheck size={13} /> Log FCR
+                        <Trash2 size={14} />
                       </button>
-                    )}
-                    <button
-                      onClick={() => removeVisit(index)}
-                      className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -341,7 +359,8 @@ export const ItineraryForm = () => {
                     <select
                       value={visit.account_id}
                       onChange={(e) => updateVisit(index, 'account_id', e.target.value)}
-                      className="input text-sm"
+                      className="input text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                      disabled={readOnly}
                     >
                       <option value="">Select account</option>
                       {accounts.map(acc => (
@@ -363,7 +382,8 @@ export const ItineraryForm = () => {
                       type="date"
                       value={visit.visit_date}
                       onChange={(e) => updateVisit(index, 'visit_date', e.target.value)}
-                      className="input text-sm"
+                      className="input text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                      disabled={readOnly}
                     />
                   </div>
 
@@ -375,8 +395,9 @@ export const ItineraryForm = () => {
                           key={p}
                           type="button"
                           onClick={() => updateVisit(index, 'period', p)}
-                          className={`flex-1 py-2 font-medium transition-colors ${
-                            (visit.period || 'AM') === p ? 'bg-primary-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50'
+                          disabled={readOnly}
+                          className={`flex-1 py-2 font-medium transition-colors disabled:cursor-default ${
+                            (visit.period || 'AM') === p ? 'bg-primary-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50 disabled:hover:bg-white'
                           }`}
                         >
                           {p}
@@ -391,8 +412,9 @@ export const ItineraryForm = () => {
                       type="text"
                       value={visit.estimated_duration}
                       onChange={(e) => updateVisit(index, 'estimated_duration', e.target.value)}
-                      className="input text-sm"
+                      className="input text-sm disabled:bg-gray-50 disabled:text-gray-500"
                       placeholder="e.g., 2 hours"
+                      disabled={readOnly}
                     />
                   </div>
 
@@ -402,8 +424,9 @@ export const ItineraryForm = () => {
                       type="text"
                       value={visit.purpose}
                       onChange={(e) => updateVisit(index, 'purpose', e.target.value)}
-                      className="input text-sm"
+                      className="input text-sm disabled:bg-gray-50 disabled:text-gray-500"
                       placeholder="Purpose of visit..."
+                      disabled={readOnly}
                     />
                   </div>
 
@@ -413,7 +436,8 @@ export const ItineraryForm = () => {
                       type="text"
                       value={visit.location}
                       onChange={(e) => updateVisit(index, 'location', e.target.value)}
-                      className="input text-sm"
+                      className="input text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                      disabled={readOnly}
                       placeholder="Meeting location..."
                     />
                   </div>
@@ -423,8 +447,9 @@ export const ItineraryForm = () => {
                     <textarea
                       value={visit.notes}
                       onChange={(e) => updateVisit(index, 'notes', e.target.value)}
-                      className="input text-sm min-h-[60px]"
+                      className="input text-sm min-h-[60px] disabled:bg-gray-50 disabled:text-gray-500"
                       placeholder="Additional notes for this visit..."
+                      disabled={readOnly}
                     />
                   </div>
                 </div>
@@ -440,24 +465,28 @@ export const ItineraryForm = () => {
           onClick={() => navigate('/itinerary')}
           className="btn-secondary"
         >
-          Cancel
+          {readOnly ? 'Back' : 'Cancel'}
         </button>
-        <button
-          onClick={() => handleSave('draft')}
-          disabled={saving}
-          className="btn-secondary flex items-center gap-2"
-        >
-          <Save size={16} />
-          {saving ? 'Saving...' : 'Save Draft'}
-        </button>
-        <button
-          onClick={handleSubmitForApproval}
-          disabled={saving}
-          className="btn-primary flex items-center gap-2"
-        >
-          <Send size={16} />
-          {saving ? 'Submitting...' : 'Submit for Approval'}
-        </button>
+        {!readOnly && (
+          <>
+            <button
+              onClick={() => handleSave('draft')}
+              disabled={saving}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Save size={16} />
+              {saving ? 'Saving...' : 'Save Draft'}
+            </button>
+            <button
+              onClick={handleSubmitForApproval}
+              disabled={saving}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Send size={16} />
+              {saving ? 'Submitting...' : 'Submit for Approval'}
+            </button>
+          </>
+        )}
       </div>
     </div>
   )

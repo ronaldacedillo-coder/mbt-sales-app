@@ -42,7 +42,11 @@ function App() {
         <Route path="/dashboard" element={<Dashboard />} />
         
         <Route path="/itinerary" element={<ItineraryList />} />
-        <Route path="/itinerary/new" element={<ItineraryForm />} />
+        <Route path="/itinerary/new" element={
+          <ProtectedRoute allowedRoles={[ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD]}>
+            <ItineraryForm />
+          </ProtectedRoute>
+        } />
         <Route path="/itinerary/:id" element={<ItineraryForm />} />
         <Route path="/itinerary/approval" element={
           <ProtectedRoute allowedRoles={[ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD]}>
@@ -51,9 +55,17 @@ function App() {
         } />
         
         <Route path="/accounts" element={<AccountList />} />
-        <Route path="/accounts/new" element={<AccountForm />} />
+        <Route path="/accounts/new" element={
+          <ProtectedRoute allowedRoles={[ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD]}>
+            <AccountForm />
+          </ProtectedRoute>
+        } />
         <Route path="/accounts/:id" element={<AccountDetail />} />
-        <Route path="/accounts/:id/edit" element={<AccountForm />} />
+        <Route path="/accounts/:id/edit" element={
+          <ProtectedRoute allowedRoles={[ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD]}>
+            <AccountForm />
+          </ProtectedRoute>
+        } />
 
         <Route path="/fcr" element={<FCRList />} />
         <Route path="/fcr/new" element={

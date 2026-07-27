@@ -143,10 +143,12 @@ export const ItineraryList = () => {
           <h1 className="text-2xl font-bold text-gray-900">MCP (Plan)</h1>
           <p className="text-gray-500 mt-1">Monthly Coverage Plan -- propose and get approval for your visit schedule</p>
         </div>
-        <Link to="/itinerary/new" className="btn-primary flex items-center justify-center gap-2 self-start">
-          <Plus size={18} />
-          New MCP (Plan)
-        </Link>
+        {role !== ROLES.VIEWER && (
+          <Link to="/itinerary/new" className="btn-primary flex items-center justify-center gap-2 self-start">
+            <Plus size={18} />
+            New MCP (Plan)
+          </Link>
+        )}
       </div>
 
       {/* Filters */}
@@ -187,11 +189,15 @@ export const ItineraryList = () => {
         <div className="card text-center py-16">
           <Calendar size={48} className="mx-auto text-gray-300 mb-4" />
           <h3 className="text-lg font-medium text-gray-900">No MCP (Plan)s found</h3>
-          <p className="text-gray-500 mt-1">Create your first Monthly Coverage Plan to get started</p>
-          <Link to="/itinerary/new" className="btn-primary mt-4 inline-flex items-center gap-2">
-            <Plus size={18} />
-            Create MCP (Plan)
-          </Link>
+          <p className="text-gray-500 mt-1">
+            {role !== ROLES.VIEWER ? 'Create your first Monthly Coverage Plan to get started' : 'No Monthly Coverage Plans yet'}
+          </p>
+          {role !== ROLES.VIEWER && (
+            <Link to="/itinerary/new" className="btn-primary mt-4 inline-flex items-center gap-2">
+              <Plus size={18} />
+              Create MCP (Plan)
+            </Link>
+          )}
         </div>
       ) : (
         <div className="space-y-3">

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { getTeamType, getApproverRole } from '../../utils/roles'
+import { ROLES, getTeamType, getApproverRole } from '../../utils/roles'
 import { emptyCustomerInfo, emptyFormData } from './fcrTemplates'
 import { FCRFormBody } from './FCRFormBody'
 import { downloadFCRPdf } from '../../lib/fcrPdf'
@@ -200,7 +200,10 @@ export const FCRForm = () => {
     }
   }
 
-  const readOnly = isEdit && !['draft', 'rejected'].includes(record.status)
+  // VIEWER (Product Manager / HVAC Director) never edits an FCR, regardless
+  // of its status -- everything below renders read-only for them.
+  const isViewer = role === ROLES.VIEWER
+  const readOnly = isViewer || (isEdit && !['draft', 'rejected'].includes(record.status))
 
   if (loading) {
     return (
@@ -297,7 +300,7 @@ export const FCRForm = () => {
               </span>
             )}
 
-            {record.ack_status !== 'acknowledged' && (
+            {!isViewer && record.ack_status !== 'acknowledged' && (
               <button
                 onClick={handleSendAcknowledgment}
                 disabled={sendingAck || !record.attendee_email}
@@ -308,7 +311,7 @@ export const FCRForm = () => {
               </button>
             )}
 
-            {record.ack_status === 'pending' && (
+            {!isViewer && record.ack_status === 'pending' && (
               <button
                 onClick={handleCheckAckStatus}
                 disabled={checkingAck}

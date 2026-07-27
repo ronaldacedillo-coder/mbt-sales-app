@@ -16,6 +16,12 @@ import { ROLES, canCreateAccount, canCreateFCR } from '../utils/roles'
 import { format, parseISO, differenceInCalendarDays, addDays, startOfMonth } from 'date-fns'
 
 const LEADERSHIP_ROLES = [ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD]
+// VIEWER (Product Manager / HVAC Director) sees the same org-wide Team
+// Overview leadership does, since their itinerary/FCR queries below are
+// already unfiltered (no branch below matches VIEWER, so the queries run
+// with no owner/team restriction) -- they're looking at the same full
+// dataset, just without approval authority.
+const TEAM_OVERVIEW_ROLES = [...LEADERSHIP_ROLES, ROLES.VIEWER]
 
 export const Dashboard = () => {
   const { user, profile, role } = useAuth()
@@ -76,10 +82,12 @@ export const Dashboard = () => {
         .from('accounts')
         .select('id, company_name')
 
-      const { count: archivedMCPs } = await supabase
-        .from('mcp_archive')
-        .select('id', { count: 'exact', head: true })
-        .eq('generated_by', user.id)
+      // VIEWER never generates their own MCP (Actual) exports, so count
+      // every archived snapshot they can see (org-wide, per the
+      // mcp_archive_select_viewer RLS policy) rather than "mine" (always 0).
+      let archivedMCPQuery = supabase.from('mcp_archive').select('id', { count: 'exact', head: true })
+      if (role !== ROLES.VIEWER) archivedMCPQuery = archivedMCPQuery.eq('generated_by', user.id)
+      const { count: archivedMCPs } = await archivedMCPQuery
 
       // This month's approved MCP (Plan) -- shown as a calendar below once
       // it clears approval, per the "approved plan shows on the dashboard"
@@ -130,9 +138,9 @@ export const Dashboard = () => {
       items.sort((a, b) => a.date.localeCompare(b.date))
       setFollowUps(items)
 
-      // Leadership team-overview: only meaningful for NSM / Commercial AC Head,
-      // over the reports they already have visibility into above
-      if (LEADERSHIP_ROLES.includes(role)) {
+      // Leadership team-overview: NSM / Commercial AC Head / VIEWER, over
+      // the reports they already have visibility into above
+      if (TEAM_OVERVIEW_ROLES.includes(role)) {
         const overdueFollowUps = (fcrs || []).filter(f =>
           f.follow_up_date && f.status === 'approved' && parseISO(f.follow_up_date) < today
         ).length
@@ -187,17 +195,17 @@ export const Dashboard = () => {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard 
-          icon={Calendar} 
-          label={role === ROLES.COMMERCIAL_AC_HEAD || role === ROLES.NSM ? 'Pending Itineraries' : 'My Itineraries'}
-          value={role === ROLES.COMMERCIAL_AC_HEAD || role === ROLES.NSM ? stats.pendingItineraries : stats.myItineraries}
+        <StatCard
+          icon={Calendar}
+          label={role === ROLES.VIEWER ? 'All MCP (Plan)s' : role === ROLES.COMMERCIAL_AC_HEAD || role === ROLES.NSM ? 'Pending Itineraries' : 'My Itineraries'}
+          value={role === ROLES.VIEWER ? stats.myItineraries : role === ROLES.COMMERCIAL_AC_HEAD || role === ROLES.NSM ? stats.pendingItineraries : stats.myItineraries}
           color="blue"
           link="/itinerary"
         />
-        <StatCard 
-          icon={ClipboardCheck} 
-          label={role === ROLES.COMMERCIAL_AC_HEAD || role === ROLES.NSM ? 'Pending FCRs' : 'My FCRs'}
-          value={role === ROLES.COMMERCIAL_AC_HEAD || role === ROLES.NSM ? stats.pendingFCRs : stats.myFCRs}
+        <StatCard
+          icon={ClipboardCheck}
+          label={role === ROLES.VIEWER ? 'All FCRs' : role === ROLES.COMMERCIAL_AC_HEAD || role === ROLES.NSM ? 'Pending FCRs' : 'My FCRs'}
+          value={role === ROLES.VIEWER ? stats.myFCRs : role === ROLES.COMMERCIAL_AC_HEAD || role === ROLES.NSM ? stats.pendingFCRs : stats.myFCRs}
           color="amber"
           link="/fcr"
         />
@@ -287,9 +295,11 @@ export const Dashboard = () => {
             <div className="text-center py-8 text-gray-400">
               <Calendar size={32} className="mx-auto mb-2 opacity-50" />
               <p>No itineraries yet</p>
-              <Link to="/itinerary/new" className="text-primary-600 text-sm mt-1 inline-block">
-                Create your first itinerary
-              </Link>
+              {role !== ROLES.VIEWER && (
+                <Link to="/itinerary/new" className="text-primary-600 text-sm mt-1 inline-block">
+                  Create your first itinerary
+                </Link>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -320,9 +330,11 @@ export const Dashboard = () => {
             <div className="text-center py-8 text-gray-400">
               <ClipboardCheck size={32} className="mx-auto mb-2 opacity-50" />
               <p>No FCRs yet</p>
-              <Link to="/fcr/new" className="text-primary-600 text-sm mt-1 inline-block">
-                Create your first FCR
-              </Link>
+              {canCreateFCR(role) && (
+                <Link to="/fcr/new" className="text-primary-600 text-sm mt-1 inline-block">
+                  Create your first FCR
+                </Link>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -355,13 +367,15 @@ export const Dashboard = () => {
               color="emerald"
             />
           )}
-          <QuickActionCard
-            icon={Calendar}
-            label="New MCP (Plan)"
-            description="Propose your monthly visits"
-            link="/itinerary/new"
-            color="blue"
-          />
+          {role !== ROLES.VIEWER && (
+            <QuickActionCard
+              icon={Calendar}
+              label="New MCP (Plan)"
+              description="Propose your monthly visits"
+              link="/itinerary/new"
+              color="blue"
+            />
+          )}
           {canCreateFCR(role) && (
             <QuickActionCard
               icon={ClipboardCheck}

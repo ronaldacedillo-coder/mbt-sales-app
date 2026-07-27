@@ -58,13 +58,22 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
     return () => clearInterval(interval)
   }, [role])
 
+  // Every rep/manager role plus VIEWER (Product Manager / HVAC Director) --
+  // VIEWER only ever lands on entries in VIEW_ROLES below, never on the
+  // approval or weekly-report pages, which stay approver-only.
+  const VIEW_ROLES = [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD, ROLES.VIEWER]
+
   const navItems = [
-    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD] },
-    { path: '/itinerary', label: 'MCP (Plan)', icon: Calendar, roles: [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD] },
-    { path: '/accounts', label: 'Accounts', icon: Building2, roles: [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD] },
-    { path: '/fcr', label: 'Field Contact Reports', icon: ClipboardCheck, roles: [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD] },
+    { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, roles: VIEW_ROLES },
+    { path: '/itinerary', label: 'MCP (Plan)', icon: Calendar, roles: VIEW_ROLES },
+    { path: '/accounts', label: 'Accounts', icon: Building2, roles: VIEW_ROLES },
+    { path: '/fcr', label: 'Field Contact Reports', icon: ClipboardCheck, roles: VIEW_ROLES },
+    // MCP (Actual) is always scoped to the signed-in user's own acknowledged
+    // visits (see MCPActual.jsx), so it would just be permanently empty for
+    // VIEWER -- MCP Archive is the cross-team equivalent that actually shows
+    // them something (every snapshot ever generated, org-wide).
     { path: '/mcp-actual', label: 'MCP (Actual)', icon: Calendar, roles: [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD] },
-    { path: '/mcp-archive', label: 'MCP Archive', icon: Archive, roles: [ROLES.SALES_ENGINEER, ROLES.BD_ENGINEER, ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD] },
+    { path: '/mcp-archive', label: 'MCP Archive', icon: Archive, roles: VIEW_ROLES },
     { path: '/fcr/approval', label: 'FCR Approvals', icon: CheckCircle2, roles: APPROVER_ROLES, badge: pendingFCRs },
     { path: '/itinerary/approval', label: 'MCP (Plan) Approvals', icon: CheckCircle2, roles: APPROVER_ROLES, badge: pendingItineraries },
     { path: '/reports/weekly', label: 'Weekly Report Download', icon: Download, roles: APPROVER_ROLES },
