@@ -18,6 +18,12 @@ export const ROLES = {
 // create, edit, approve, or delete anything. They sign in with the same
 // MBT Project Pipeline credentials as everyone else -- no separate account
 // was created for this.
+//
+// 'admin' (the team's admin, e.g. Christine Joy Villanueva) also maps to
+// VIEWER -- same permission set as pm/director (read-only, both teams,
+// including PDF exports which are already ungated by role on FCR/MCP
+// Archive). She has her own dedicated account in this app (not shared with
+// Pipeline), since she isn't a Pipeline user.
 const PIPELINE_ROLE_MAP = {
   se: ROLES.SALES_ENGINEER,
   bd: ROLES.BD_ENGINEER,
@@ -25,6 +31,7 @@ const PIPELINE_ROLE_MAP = {
   head: ROLES.COMMERCIAL_AC_HEAD,
   pm: ROLES.VIEWER,
   director: ROLES.VIEWER,
+  admin: ROLES.VIEWER,
 }
 
 // Returns null for Pipeline roles the Sales app has no equivalent for --
@@ -57,6 +64,7 @@ export const ROLE_LABELS = {
 export const PIPELINE_ROLE_LABELS = {
   pm: 'Product Manager',
   director: 'HVAC Director',
+  admin: 'Team Admin',
 }
 
 export const getDisplayTitle = (role, pipelineRole) =>
