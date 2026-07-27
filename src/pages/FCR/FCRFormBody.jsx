@@ -86,6 +86,7 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
   const SPECIN_VALUES = ['yes', 'exclusive midea', 'midea included in approved brands']
   const isSpecIn = (specin) => SPECIN_VALUES.includes((specin || '').trim().toLowerCase())
   const isBidding = (status) => (status || '').toLowerCase().includes('bidding')
+  const isFinalNegotiation = (status) => (status || '').toLowerCase().includes('final negotiation')
 
   const importPipelineProject = (p) => {
     const money = (n) => (n || n === 0) ? `PHP ${Number(n).toLocaleString()}` : ''
@@ -121,10 +122,21 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
         return
       }
     } else {
-      // MBT Sales' Under Negotiation section isn't Spec-in-based -- keep the
-      // simpler rule: still-Bidding projects are early-stage (Qualified /
-      // Identified), everything else has moved past bidding.
-      targetKey = isBidding(p.status) ? 'qualified' : 'primary'
+      // MBT Sales' Project Opportunities are stage-based: still-Bidding
+      // projects are early-stage (Qualified / Identified), and projects that
+      // have moved to Final Negotiation belong in Under Negotiation. Other
+      // Pipeline statuses (Design Stage, Budgetary, Lost, PO Acquired,
+      // Verbally Awarded, Delivered) don't map cleanly to either section, so
+      // -- same as BD's Spec-in check above -- they're left for the rep to
+      // add manually rather than guessed at.
+      if (isBidding(p.status)) {
+        targetKey = 'qualified'
+      } else if (isFinalNegotiation(p.status)) {
+        targetKey = 'primary'
+      } else {
+        alert(`"${p.name}" is at "${p.status || 'an unspecified'}" status in Pipeline, which isn't Bidding or Final Negotiation, so it doesn't clearly belong in either Qualified / Identified or Under Negotiation. Add it to the table manually below if you still want it on this FCR.`)
+        return
+      }
     }
 
     setFormData({
@@ -516,12 +528,18 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
       <div>
         <SectionHeader>Meeting Attendee (Account Side)</SectionHeader>
         <div className="border border-t-0 border-gray-200 rounded-b-lg p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Field
               label="Attendee Name"
               value={record.attendee_name}
               readOnly={readOnly}
               onChange={(v) => set({ attendee_name: v })}
+            />
+            <Field
+              label="Attendee Designation"
+              value={record.attendee_designation}
+              readOnly={readOnly}
+              onChange={(v) => set({ attendee_designation: v })}
             />
             <Field
               label="Attendee Email"

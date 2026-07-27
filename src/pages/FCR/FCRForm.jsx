@@ -19,6 +19,7 @@ const blankRecord = (teamType) => ({
   coverage_notes: '',
   customer_signature_name: '',
   attendee_name: '',
+  attendee_designation: '',
   attendee_email: '',
   ack_status: 'not_sent',
 })

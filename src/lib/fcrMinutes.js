@@ -32,7 +32,7 @@ Company: ${customerInfo.company_name || 'Not specified'}
 Visit Date: ${visitDateLabel} (${record.period === 'PM' ? 'Afternoon' : 'Morning'})
 Location: ${customerInfo.business_address || 'Not specified'}
 Prepared by: ${submitterName || 'Not specified'} (MBT ${record.team_type === 'business_development' ? 'Business Development' : 'Sales'})
-Attendee (Account side): ${record.attendee_name || 'Not specified'}
+Attendee (Account side): ${record.attendee_name || 'Not specified'}${record.attendee_designation ? `, ${record.attendee_designation}` : ''}
 
 DISCUSSION SUMMARY
 -------------------

@@ -211,6 +211,7 @@ const buildFCRDoc = async ({ record, account, submitterName }) => {
   sectionTitle('Account Acknowledgment')
   kv([
     ['Attendee (Account side)', record.attendee_name],
+    ['Attendee Designation', record.attendee_designation],
     ['Attendee Email', record.attendee_email],
     ['Acknowledgment Status', record.ack_status === 'acknowledged' ? 'Acknowledged' : record.ack_status],
     ['Acknowledged By', record.acknowledged_name],
