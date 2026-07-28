@@ -26,10 +26,6 @@ export const ItineraryForm = () => {
   const navigate = useNavigate()
   const { user, role } = useAuth()
   const isEdit = Boolean(id)
-  // VIEWER (Product Manager / HVAC Director) can open any MCP (Plan) to
-  // look at it, but never edits one -- every input, calendar drag, and
-  // action button below is disabled/hidden for them.
-  const readOnly = role === ROLES.VIEWER
 
   const [formData, setFormData] = useState({
     title: '',
@@ -43,6 +39,17 @@ export const ItineraryForm = () => {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [view, setView] = useState('calendar')
+
+  // VIEWER (Product Manager / HVAC Director) can open any MCP (Plan) to
+  // look at it, but never edits one -- every input, calendar drag, and
+  // action button below is disabled/hidden for them. Same treatment for
+  // anyone opening a plan they didn't create themselves -- in practice
+  // that's the NSM/Commercial AC Head reviewing a rep's submission from
+  // ItineraryList or MCP (Plan) Approvals, who should be able to see the
+  // full plan (including the calendar view) without risking an accidental
+  // edit to someone else's submission. Approve/Reject stays on the
+  // Approvals page, not here.
+  const readOnly = role === ROLES.VIEWER || (isEdit && formData.created_by && formData.created_by !== user.id)
 
   useEffect(() => {
     fetchAccounts()

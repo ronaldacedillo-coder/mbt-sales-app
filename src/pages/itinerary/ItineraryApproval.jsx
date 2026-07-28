@@ -1,30 +1,47 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ROLES, canApproveItinerary } from '../../utils/roles'
-import { 
-  CheckCircle2, 
-  XCircle, 
-  Calendar, 
-  MapPin, 
+import {
+  CheckCircle2,
+  XCircle,
+  Calendar,
+  MapPin,
   User,
   Clock,
   AlertCircle,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Eye
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 
 export const ItineraryApproval = () => {
   const { user, role } = useAuth()
   const [itineraries, setItineraries] = useState([])
+  const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState(null)
   const [processing, setProcessing] = useState(null)
 
   useEffect(() => {
     fetchPendingItineraries()
+    fetchAccounts()
   }, [user, role])
+
+  // Needed so the expanded visit list below can show which account each
+  // visit is for -- visits only store account_id, and the approver needs
+  // to see the actual company name to make an informed approve/reject call.
+  const fetchAccounts = async () => {
+    const { data } = await supabase.from('accounts').select('id, company_name, city')
+    setAccounts(data || [])
+  }
+
+  const accountName = (accountId) => {
+    const acc = accounts.find(a => a.id === accountId)
+    return acc ? `${acc.company_name}${acc.city ? ` (${acc.city})` : ''}` : 'Unassigned account'
+  }
 
   const fetchPendingItineraries = async () => {
     if (!user) return
@@ -157,9 +174,17 @@ export const ItineraryApproval = () => {
                 </div>
 
                 <div className="flex items-center gap-2 ml-4">
+                  <Link
+                    to={`/itinerary/${item.id}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                    title="View the full MCP (Plan), including the calendar"
+                  >
+                    <Eye size={16} /> View Full Plan
+                  </Link>
                   <button
                     onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
                     className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    title="Quick preview"
                   >
                     {expandedId === item.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
                   </button>
@@ -176,7 +201,7 @@ export const ItineraryApproval = () => {
                         <div key={visit.id || idx} className="bg-gray-50 rounded-lg p-3 text-sm">
                           <div className="flex items-center justify-between">
                             <span className="font-medium text-gray-900">
-                              Visit #{idx + 1}: {visit.purpose || 'No purpose specified'}
+                              Visit #{idx + 1}: {accountName(visit.account_id)}
                             </span>
                             {visit.visit_date && (
                               <span className="text-gray-500">
@@ -185,6 +210,7 @@ export const ItineraryApproval = () => {
                             )}
                           </div>
                           <div className="mt-1 text-gray-500 text-xs space-y-1">
+                            {visit.purpose && <p>Purpose: {visit.purpose}</p>}
                             {visit.location && <p>Location: {visit.location}</p>}
                             {visit.estimated_duration && <p>Duration: {visit.estimated_duration}</p>}
                             {visit.notes && <p>Notes: {visit.notes}</p>}
