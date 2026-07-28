@@ -17,6 +17,13 @@ import {
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 
+const STATUS_FILTERS = [
+  { value: 'pending_approval', label: 'Pending' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'all', label: 'All' },
+]
+
 export const ItineraryApproval = () => {
   const { user, role } = useAuth()
   const [itineraries, setItineraries] = useState([])
@@ -24,11 +31,17 @@ export const ItineraryApproval = () => {
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState(null)
   const [processing, setProcessing] = useState(null)
+  // Approving/rejecting an item here used to make it vanish from this page
+  // for good -- there was no way back to it short of hunting for it in
+  // ItineraryList. Defaulting to 'pending_approval' keeps the primary
+  // approve/reject workflow unchanged, but switching tabs lets the
+  // approver look back at what they already decided on.
+  const [statusFilter, setStatusFilter] = useState('pending_approval')
 
   useEffect(() => {
-    fetchPendingItineraries()
+    fetchItineraries()
     fetchAccounts()
-  }, [user, role])
+  }, [user, role, statusFilter])
 
   // Needed so the expanded visit list below can show which account each
   // visit is for -- visits only store account_id, and the approver needs
@@ -43,7 +56,7 @@ export const ItineraryApproval = () => {
     return acc ? `${acc.company_name}${acc.city ? ` (${acc.city})` : ''}` : 'Unassigned account'
   }
 
-  const fetchPendingItineraries = async () => {
+  const fetchItineraries = async () => {
     if (!user) return
     setLoading(true)
 
@@ -54,7 +67,10 @@ export const ItineraryApproval = () => {
           *,
           creator:user_profiles!itineraries_created_by_fkey(full_name:name, role)
         `)
-        .eq('status', 'pending_approval')
+
+      if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter)
+      }
 
       if (role === ROLES.NSM) {
         query = query.in('submitter_role', [ROLES.SALES_ENGINEER, ROLES.NSM])
@@ -84,7 +100,7 @@ export const ItineraryApproval = () => {
         })
         .eq('id', id)
       if (error) throw error
-      fetchPendingItineraries()
+      fetchItineraries()
     } catch (error) {
       console.error('Error approving:', error)
       alert('Failed to approve itinerary')
@@ -108,13 +124,31 @@ export const ItineraryApproval = () => {
         })
         .eq('id', id)
       if (error) throw error
-      fetchPendingItineraries()
+      fetchItineraries()
     } catch (error) {
       console.error('Error rejecting:', error)
       alert('Failed to reject itinerary')
     } finally {
       setProcessing(null)
     }
+  }
+
+  const statusBadge = (status) => {
+    const styles = {
+      approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      rejected: 'bg-red-50 text-red-700 border-red-200',
+      pending_approval: 'bg-amber-50 text-amber-700 border-amber-200',
+    }
+    const labels = {
+      approved: 'Approved',
+      rejected: 'Rejected',
+      pending_approval: 'Pending Approval',
+    }
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[status] || 'bg-gray-50 text-gray-700 border-gray-200'}`}>
+        {labels[status] || status}
+      </span>
+    )
   }
 
   if (loading) {
@@ -130,15 +164,37 @@ export const ItineraryApproval = () => {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">MCP (Plan) Approvals</h1>
         <p className="text-gray-500 mt-1">
-          Review and approve pending Monthly Coverage Plans
+          Review pending Monthly Coverage Plans, or look back at ones you've already decided on
         </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {STATUS_FILTERS.map((f) => (
+          <button
+            key={f.value}
+            onClick={() => setStatusFilter(f.value)}
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+              statusFilter === f.value
+                ? 'bg-primary-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
       {itineraries.length === 0 ? (
         <div className="card text-center py-16">
           <CheckCircle2 size={48} className="mx-auto text-emerald-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900">All caught up!</h3>
-          <p className="text-gray-500 mt-1">No pending MCP (Plan)s to review</p>
+          <h3 className="text-lg font-medium text-gray-900">
+            {statusFilter === 'pending_approval' ? 'All caught up!' : 'Nothing here'}
+          </h3>
+          <p className="text-gray-500 mt-1">
+            {statusFilter === 'all'
+              ? 'No MCP (Plan)s found'
+              : `No ${STATUS_FILTERS.find(f => f.value === statusFilter)?.label.toLowerCase()} MCP (Plan)s`}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -150,7 +206,7 @@ export const ItineraryApproval = () => {
                     <h3 className="text-lg font-semibold text-gray-900">
                       {item.title || `MCP (Plan) - ${format(parseISO(item.month), 'MMMM yyyy')}`}
                     </h3>
-                    <span className="badge badge-pending">Pending Approval</span>
+                    {statusBadge(item.status)}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-3">
@@ -232,25 +288,29 @@ export const ItineraryApproval = () => {
                 </div>
               )}
 
-              {/* Action Buttons */}
-              <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-center justify-end gap-3">
-                <button
-                  onClick={() => handleReject(item.id)}
-                  disabled={processing === item.id}
-                  className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center gap-2 disabled:opacity-50"
-                >
-                  <XCircle size={16} />
-                  Reject
-                </button>
-                <button
-                  onClick={() => handleApprove(item.id)}
-                  disabled={processing === item.id}
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-                >
-                  <CheckCircle2 size={16} />
-                  {processing === item.id ? 'Processing...' : 'Approve'}
-                </button>
-              </div>
+              {/* Approve/Reject only make sense for a plan still awaiting a
+                  decision -- once it's approved or rejected, "View Full Plan"
+                  above is the only action left. */}
+              {item.status === 'pending_approval' && (
+                <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-center justify-end gap-3">
+                  <button
+                    onClick={() => handleReject(item.id)}
+                    disabled={processing === item.id}
+                    className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <XCircle size={16} />
+                    Reject
+                  </button>
+                  <button
+                    onClick={() => handleApprove(item.id)}
+                    disabled={processing === item.id}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <CheckCircle2 size={16} />
+                    {processing === item.id ? 'Processing...' : 'Approve'}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
