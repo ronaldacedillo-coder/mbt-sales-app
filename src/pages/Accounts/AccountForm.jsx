@@ -147,33 +147,40 @@ export const AccountForm = () => {
   const [error, setError] = useState('')
   const [generatingRecommendation, setGeneratingRecommendation] = useState(false)
   const [possibleDuplicates, setPossibleDuplicates] = useState([])
-  const [salesEngineers, setSalesEngineers] = useState([])
+  const [teamMembers, setTeamMembers] = useState([])
 
   useEffect(() => {
     if (isEdit) fetchAccount()
-    fetchSalesEngineers()
+    fetchTeamMembers()
   }, [id])
 
   // ASE/TSE assigns the account to whoever will actually cover it in the
-  // field -- role 'se' is the short code MBT Project Pipeline stores for
-  // Sales Engineer (see PIPELINE_ROLE_MAP in utils/roles.js), which is what
-  // this shared user_profiles table uses regardless of which app you're in.
+  // field. Not every account is an MBT Sales (contractor) account -- Land
+  // Developers, Institutional Accounts, HVAC Consultants, Architects, and
+  // General Contractors are typically BD Team territory, so BD Engineers
+  // need to show up here too, not just Sales Engineers. Roles 'se'/'bd' are
+  // the short codes MBT Project Pipeline stores (see PIPELINE_ROLE_MAP in
+  // utils/roles.js), which is what this shared user_profiles table uses
+  // regardless of which app you're in.
   //
-  // EXCLUDED_SE_IDS -- Sales Engineers kept out of the assignment dropdown
-  // by request (e.g. no longer covering accounts here), without touching
+  // EXCLUDED_MEMBER_IDS -- reps kept out of the assignment dropdown by
+  // request (e.g. no longer covering accounts here), without touching
   // their actual user_profiles.role, which is shared with MBT Project
   // Pipeline and shouldn't be changed just to hide someone from this list.
   // Elmer Anthony Cubita, 2026-07-26.
-  const EXCLUDED_SE_IDS = ['57a08234-7fd6-4c3b-be5a-f3c0342e3ec5']
+  const EXCLUDED_MEMBER_IDS = ['57a08234-7fd6-4c3b-be5a-f3c0342e3ec5']
 
-  const fetchSalesEngineers = async () => {
+  const fetchTeamMembers = async () => {
     const { data } = await supabase
       .from('user_profiles')
-      .select('id, name')
-      .eq('role', 'se')
+      .select('id, name, role')
+      .in('role', ['se', 'bd'])
       .order('name')
-    setSalesEngineers((data || []).filter(se => !EXCLUDED_SE_IDS.includes(se.id)))
+    setTeamMembers((data || []).filter(m => !EXCLUDED_MEMBER_IDS.includes(m.id)))
   }
+
+  const salesEngineers = teamMembers.filter(m => m.role === 'se')
+  const bdEngineers = teamMembers.filter(m => m.role === 'bd')
 
   const fetchAccount = async () => {
     setLoading(true)
@@ -613,16 +620,23 @@ export const AccountForm = () => {
                 onChange={(e) => handleChange('ase_tse', e.target.value)}
                 className="input"
               >
-                <option value="">Assign a Sales Engineer</option>
+                <option value="">Assign a Sales Engineer or BD Engineer</option>
                 {/* Keeps a previously-set value visible even if it doesn't match
-                    a current Sales Engineer (renamed, deactivated, or set before
+                    a current team member (renamed, deactivated, or set before
                     this became a dropdown) instead of silently blanking it out. */}
-                {formData.ase_tse && !salesEngineers.some(se => se.name === formData.ase_tse) && (
+                {formData.ase_tse && !teamMembers.some(m => m.name === formData.ase_tse) && (
                   <option value={formData.ase_tse}>{formData.ase_tse}</option>
                 )}
-                {salesEngineers.map(se => (
-                  <option key={se.id} value={se.name}>{se.name}</option>
-                ))}
+                <optgroup label="Sales Engineers">
+                  {salesEngineers.map(se => (
+                    <option key={se.id} value={se.name}>{se.name}</option>
+                  ))}
+                </optgroup>
+                <optgroup label="BD Engineers">
+                  {bdEngineers.map(bd => (
+                    <option key={bd.id} value={bd.name}>{bd.name}</option>
+                  ))}
+                </optgroup>
               </select>
             </div>
             <div>
