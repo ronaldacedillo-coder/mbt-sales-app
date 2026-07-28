@@ -61,6 +61,18 @@ const APPROACH_STRATEGIES = {
     'Discuss maintenance contracts and long-term service agreements',
     'Emphasize reliability and minimal downtime for operations'
   ],
+  distributor: [
+    'Focus on territory coverage and channel growth potential',
+    'Highlight margin structure and volume incentive programs',
+    'Discuss marketing/co-op support and lead sharing',
+    'Emphasize product training and technical support for their downline'
+  ],
+  dealer: [
+    'Focus on sell-through support and showroom-ready materials',
+    'Highlight dealer pricing tiers and promo/rebate programs',
+    'Discuss stock availability and order lead times',
+    'Emphasize brand support -- training, signage, and marketing collateral'
+  ],
   other: [
     'Focus on understanding the account\'s specific needs',
     'Highlight customizable solutions',

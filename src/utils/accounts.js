@@ -30,6 +30,10 @@ export const isAccountProfiled = (account) => {
 // accounts.customer_type; CUSTOMER_TYPE_LABELS maps it back to the
 // human-readable label anywhere it's displayed (AccountList, AccountDetail)
 // or used to key AccountForm's APPROACH_STRATEGIES.
+// 'distributor'/'dealer' here are customer_type values -- unrelated to the
+// TRADE_TERMS.DISTRIBUTOR ('distributor') value above, which lives on a
+// different column (trade_terms, how the account buys) and describes any
+// account type, including these two.
 export const CUSTOMER_TYPES = [
   { value: 'project_contractor', label: 'Project Contractor' },
   { value: 'fitout_contractor', label: 'Fit-out Contractor' },
@@ -37,6 +41,8 @@ export const CUSTOMER_TYPES = [
   { value: 'architect', label: 'Architect' },
   { value: 'land_developer', label: 'Land Developer' },
   { value: 'institutional_account', label: 'Multi-Branch Institutional Account' },
+  { value: 'distributor', label: 'Distributor' },
+  { value: 'dealer', label: 'Dealer' },
   { value: 'other', label: 'Other End-user Account' },
 ]
 
