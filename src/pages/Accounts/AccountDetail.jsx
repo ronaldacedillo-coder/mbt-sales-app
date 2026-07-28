@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { PipelineProjectsPanel } from './PipelineProjectsPanel'
-import { TRADE_TERMS_LABELS } from '../../utils/accounts'
+import { TRADE_TERMS_LABELS, CUSTOMER_TYPE_LABELS } from '../../utils/accounts'
 import { HandCoins } from 'lucide-react'
 
 const MANAGER_ROLES = [ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD]
@@ -134,7 +134,7 @@ export const AccountDetail = () => {
               </span>
             </div>
             <p className="text-gray-500 text-sm mt-0.5">
-              {[account.industry, account.city, account.country].filter(Boolean).join(' · ') || 'No details yet'}
+              {[CUSTOMER_TYPE_LABELS[account.customer_type] || account.customer_type, account.city, account.country].filter(Boolean).join(' · ') || 'No details yet'}
             </p>
           </div>
         </div>

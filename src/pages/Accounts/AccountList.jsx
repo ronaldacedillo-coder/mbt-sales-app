@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ROLES, canCreateAccount } from '../../utils/roles'
+import { CUSTOMER_TYPE_LABELS } from '../../utils/accounts'
 import {
   Plus,
   Building2,
@@ -80,7 +81,7 @@ export const AccountList = () => {
       return (
         acc.company_name?.toLowerCase().includes(search) ||
         acc.city?.toLowerCase().includes(search) ||
-        acc.industry?.toLowerCase().includes(search)
+        (CUSTOMER_TYPE_LABELS[acc.customer_type] || acc.customer_type)?.toLowerCase().includes(search)
       )
     }
     return true
@@ -187,10 +188,10 @@ export const AccountList = () => {
               </h3>
 
               <div className="space-y-1.5 text-sm text-gray-500">
-                {account.industry && (
+                {account.customer_type && (
                   <p className="flex items-center gap-1.5">
                     <Factory size={14} />
-                    {account.industry}
+                    {CUSTOMER_TYPE_LABELS[account.customer_type] || account.customer_type}
                   </p>
                 )}
                 {account.city && (

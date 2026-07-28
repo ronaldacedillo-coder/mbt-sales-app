@@ -55,7 +55,7 @@ export const ItineraryForm = () => {
   const fetchAccounts = async () => {
     const { data } = await supabase
       .from('accounts')
-      .select('id, company_name, city, industry')
+      .select('id, company_name, city, customer_type')
       .not('trade_terms', 'is', null)
       .order('company_name')
     setAccounts(data || [])

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
-import { TRADE_TERMS, TRADE_TERMS_LABELS, DISTRIBUTOR_OPTIONS } from '../../utils/accounts'
+import { TRADE_TERMS, TRADE_TERMS_LABELS, DISTRIBUTOR_OPTIONS, CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS } from '../../utils/accounts'
 import {
   ArrowLeft,
   Building2,
@@ -12,12 +12,6 @@ import {
   Sparkles,
   HandCoins
 } from 'lucide-react'
-
-const INDUSTRIES = [
-  'Manufacturing', 'Healthcare', 'Retail', 'Technology', 
-  'Finance', 'Education', 'Construction', 'Logistics',
-  'Energy', 'Agriculture', 'Hospitality', 'Other'
-]
 
 const COMPANY_SIZES = [
   '1-10 employees', '11-50 employees', '51-200 employees',
@@ -31,74 +25,44 @@ const PRIORITIES = [
 ]
 
 const APPROACH_STRATEGIES = {
-  manufacturing: [
-    'Focus on operational efficiency and cost reduction',
-    'Highlight automation and Industry 4.0 solutions',
-    'Emphasize supply chain optimization',
-    'Discuss quality control and compliance standards'
+  project_contractor: [
+    'Focus on project timelines and on-time equipment delivery',
+    'Highlight technical support during installation and commissioning',
+    'Discuss volume/project-based pricing for multiple units',
+    'Emphasize after-sales service and warranty coverage'
   ],
-  healthcare: [
-    'Focus on patient care improvement and safety',
-    'Highlight regulatory compliance and certifications',
-    'Discuss data security and HIPAA compliance',
-    'Emphasize cost-effective healthcare delivery'
+  fitout_contractor: [
+    'Focus on fast turnaround for interior fit-out schedules',
+    'Highlight compact, space-efficient unit options',
+    'Discuss flexible delivery windows to match fit-out phases',
+    'Emphasize aesthetics and low-noise operation for occupied spaces'
   ],
-  retail: [
-    'Focus on customer experience enhancement',
-    'Highlight inventory management solutions',
-    'Discuss omnichannel strategies',
-    'Emphasize data-driven decision making'
+  general_contractor: [
+    'Focus on reliability across multiple concurrent projects',
+    'Highlight consistent supply and inventory availability',
+    'Discuss bulk/project pricing and payment terms',
+    'Emphasize coordination with MEP subcontractors'
   ],
-  technology: [
-    'Focus on innovation and scalability',
-    'Highlight integration capabilities',
-    'Discuss cybersecurity and data protection',
-    'Emphasize agile development practices'
+  architect: [
+    'Focus on design flexibility and product specification support',
+    'Highlight energy efficiency ratings and green building compliance',
+    'Discuss technical documentation and spec sheet availability',
+    'Emphasize aesthetics and integration with building design'
   ],
-  finance: [
-    'Focus on risk management and compliance',
-    'Highlight digital transformation',
-    'Discuss customer trust and security',
-    'Emphasize regulatory adherence'
+  land_developer: [
+    'Focus on long-term partnership across multiple development phases',
+    'Highlight scalable solutions for master-planned communities',
+    'Discuss developer pricing and bulk procurement terms',
+    'Emphasize brand reputation and buyer confidence'
   ],
-  education: [
-    'Focus on student outcomes and engagement',
-    'Highlight technology integration',
-    'Discuss accessibility and inclusivity',
-    'Emphasize cost-effective solutions'
-  ],
-  construction: [
-    'Focus on project efficiency and safety',
-    'Highlight sustainable building practices',
-    'Discuss supply chain management',
-    'Emphasize quality and compliance'
-  ],
-  logistics: [
-    'Focus on supply chain optimization',
-    'Highlight real-time tracking solutions',
-    'Discuss cost reduction strategies',
-    'Emphasize delivery reliability'
-  ],
-  energy: [
-    'Focus on sustainability and efficiency',
-    'Highlight renewable energy solutions',
-    'Discuss regulatory compliance',
-    'Emphasize cost management'
-  ],
-  agriculture: [
-    'Focus on yield optimization',
-    'Highlight precision agriculture',
-    'Discuss sustainability practices',
-    'Emphasize supply chain integration'
-  ],
-  hospitality: [
-    'Focus on guest experience',
-    'Highlight operational efficiency',
-    'Discuss technology integration',
-    'Emphasize brand reputation'
+  institutional_account: [
+    'Focus on standardization across multiple branches/sites',
+    'Highlight centralized procurement and consistent service support',
+    'Discuss maintenance contracts and long-term service agreements',
+    'Emphasize reliability and minimal downtime for operations'
   ],
   other: [
-    'Focus on understanding unique business needs',
+    'Focus on understanding the account\'s specific needs',
     'Highlight customizable solutions',
     'Discuss ROI and value proposition',
     'Emphasize partnership approach'
@@ -113,7 +77,7 @@ export const AccountForm = () => {
 
   const [formData, setFormData] = useState({
     company_name: '',
-    industry: '',
+    customer_type: '',
     company_size: '',
     website: '',
     description: '',
@@ -219,20 +183,21 @@ export const AccountForm = () => {
   }
 
   const generateRecommendation = () => {
-    if (!formData.industry) {
-      setError('Please select an industry first')
+    if (!formData.customer_type) {
+      setError('Please select a Customer Type first')
       return
     }
-    
+
     setGeneratingRecommendation(true)
-    
-    // Simulate AI recommendation based on industry
+
+    // Simulate AI recommendation based on customer type
     setTimeout(() => {
-      const strategies = APPROACH_STRATEGIES[formData.industry.toLowerCase()] || APPROACH_STRATEGIES.other
+      const strategies = APPROACH_STRATEGIES[formData.customer_type] || APPROACH_STRATEGIES.other
       const randomStrategy = strategies[Math.floor(Math.random() * strategies.length)]
-      
-      const recommendation = `${randomStrategy}. Based on ${formData.company_size || 'the company size'} in the ${formData.industry} sector, prioritize ${formData.pain_points ? 'addressing their pain points: ' + formData.pain_points : 'understanding their operational challenges'}. ${formData.goals ? 'Align with their goals: ' + formData.goals : 'Focus on demonstrating clear ROI and value proposition.'}`
-      
+      const customerTypeLabel = CUSTOMER_TYPE_LABELS[formData.customer_type] || formData.customer_type
+
+      const recommendation = `${randomStrategy}. Based on ${formData.company_size || 'the company size'} as a ${customerTypeLabel}, prioritize ${formData.pain_points ? 'addressing their pain points: ' + formData.pain_points : 'understanding their operational challenges'}. ${formData.goals ? 'Align with their goals: ' + formData.goals : 'Focus on demonstrating clear ROI and value proposition.'}`
+
       handleChange('recommended_approach', recommendation)
       setGeneratingRecommendation(false)
     }, 1500)
@@ -349,15 +314,22 @@ export const AccountForm = () => {
             </div>
 
             <div>
-              <label className="label">Industry</label>
+              <label className="label">Customer Type</label>
               <select
-                value={formData.industry}
-                onChange={(e) => handleChange('industry', e.target.value)}
+                value={formData.customer_type}
+                onChange={(e) => handleChange('customer_type', e.target.value)}
                 className="input"
               >
-                <option value="">Select industry</option>
-                {INDUSTRIES.map(ind => (
-                  <option key={ind} value={ind.toLowerCase()}>{ind}</option>
+                <option value="">Select customer type</option>
+                {/* Keeps a previously-set value visible even if it doesn't match
+                    a current Customer Type (this account still had the old
+                    "Industry" value, e.g. "Construction" or "Retail") instead
+                    of silently blanking it out. */}
+                {formData.customer_type && !CUSTOMER_TYPES.some(ct => ct.value === formData.customer_type) && (
+                  <option value={formData.customer_type}>{formData.customer_type}</option>
+                )}
+                {CUSTOMER_TYPES.map(ct => (
+                  <option key={ct.value} value={ct.value}>{ct.label}</option>
                 ))}
               </select>
             </div>
@@ -705,7 +677,7 @@ export const AccountForm = () => {
                 <Sparkles size={20} className="text-primary-600" />
                 Suggested Talking Points
               </h3>
-              <p className="text-xs text-gray-400 mt-0.5">A starting-point suggestion based on industry and the details you've entered below -- not a substitute for your own read of the account. Edit freely.</p>
+              <p className="text-xs text-gray-400 mt-0.5">A starting-point suggestion based on customer type and the details you've entered below -- not a substitute for your own read of the account. Edit freely.</p>
             </div>
             <button
               type="button"
