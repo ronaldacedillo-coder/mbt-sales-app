@@ -161,12 +161,17 @@ export const Dashboard = () => {
 
         const memberIds = (members || []).map(m => m.id)
 
-        const [{ data: memberFcrs }, { data: memberPlans }] = memberIds.length
+        const [{ data: memberFcrs }, { data: memberPlans }, { data: memberMcpActuals }] = memberIds.length
           ? await Promise.all([
               supabase.from('fcrs').select('created_by, status, follow_up_date').in('created_by', memberIds),
               supabase.from('itineraries').select('created_by, status').in('created_by', memberIds).eq('month', monthStart),
+              // MCP (Actual) is generated per month (mcp_archive.month is
+              // always the 1st of the month) -- this month's row per member,
+              // same "month" the Team Overview and MCP (Plan) column below
+              // are already scoped to, so all three stay in sync.
+              supabase.from('mcp_archive').select('generated_by, fcr_count, created_at').in('generated_by', memberIds).eq('month', monthStart).order('created_at', { ascending: false }),
             ])
-          : [{ data: [] }, { data: [] }]
+          : [{ data: [] }, { data: [] }, { data: [] }]
 
         const overdueFollowUps = (memberFcrs || []).filter(f =>
           f.follow_up_date && f.status === 'approved' && parseISO(f.follow_up_date) < today
@@ -181,6 +186,9 @@ export const Dashboard = () => {
         setTeamMembers((members || []).map(m => {
           const mFcrs = (memberFcrs || []).filter(f => f.created_by === m.id)
           const plan = (memberPlans || []).find(p => p.created_by === m.id)
+          // Rows are already newest-first, so the first match per member is
+          // their latest generation for this month if they re-ran it.
+          const mcpActual = (memberMcpActuals || []).find(a => a.generated_by === m.id)
           return {
             id: m.id,
             name: m.name,
@@ -189,6 +197,7 @@ export const Dashboard = () => {
             fcrPending: mFcrs.filter(f => f.status === 'pending_approval').length,
             fcrRejected: mFcrs.filter(f => f.status === 'rejected').length,
             planStatus: plan ? plan.status : 'none',
+            mcpActualCount: mcpActual ? mcpActual.fcr_count : null,
           }
         }))
       }
@@ -460,12 +469,24 @@ export const Dashboard = () => {
 }
 
 // Per-member breakdown shown inside the Team Overview card -- one row per
-// Sales/BD Engineer with their FCR counts by status and this month's MCP
-// (Plan) status. Hidden entirely (returns null) when there are no members
-// of that team so NSM (Sales-only) doesn't render an empty "BD Team"
-// section that never applies to them.
+// Sales/BD Engineer with their FCR counts by status, this month's MCP
+// (Plan) status, and this month's MCP (Actual) generation status. Hidden
+// entirely (returns null) when there are no members of that team so NSM
+// (Sales-only) doesn't render an empty "BD Team" section that never
+// applies to them.
 const TeamMemberTable = ({ title, members, getStatusBadge }) => {
   if (members.length === 0) return null
+
+  const mcpActualBadge = (count) =>
+    count == null ? (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+        Not generated yet
+      </span>
+    ) : (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+        Generated &middot; {count} visit{count === 1 ? '' : 's'}
+      </span>
+    )
 
   return (
     <div>
@@ -479,6 +500,7 @@ const TeamMemberTable = ({ title, members, getStatusBadge }) => {
               <th className="py-2 px-2 font-medium">FCRs Pending</th>
               <th className="py-2 px-2 font-medium">FCRs Rejected</th>
               <th className="py-2 px-2 font-medium">This Month's MCP (Plan)</th>
+              <th className="py-2 px-2 font-medium">This Month's MCP (Actual)</th>
             </tr>
           </thead>
           <tbody>
@@ -489,6 +511,7 @@ const TeamMemberTable = ({ title, members, getStatusBadge }) => {
                 <td className="py-2.5 px-2 text-amber-700">{m.fcrPending}</td>
                 <td className="py-2.5 px-2 text-red-700">{m.fcrRejected}</td>
                 <td className="py-2.5 px-2">{getStatusBadge(m.planStatus)}</td>
+                <td className="py-2.5 px-2">{mcpActualBadge(m.mcpActualCount)}</td>
               </tr>
             ))}
           </tbody>
