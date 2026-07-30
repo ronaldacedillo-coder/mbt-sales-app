@@ -5,6 +5,7 @@ import { supabase } from '../../lib/supabase'
 import { ROLES } from '../../utils/roles'
 import { downloadExportExcel } from '../../lib/excelExport'
 import { buildExportReportPdf } from '../../lib/exportReportPdf'
+import { downloadMemberFcrsZip } from '../../lib/weeklyReportZip'
 import { startOfMonth, endOfMonth, format, parseISO } from 'date-fns'
 import {
   ArrowLeft,
@@ -13,6 +14,8 @@ import {
   ClipboardCheck,
   Archive,
   AlertCircle,
+  Download,
+  Users,
 } from 'lucide-react'
 
 // A cross-team export -- unlike Weekly Report Download (which is scoped to
@@ -32,9 +35,12 @@ export const ExportCenter = () => {
   const [end, setEnd] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [fcrs, setFcrs] = useState([])
   const [mcpEntries, setMcpEntries] = useState([])
+  const [approvedFcrs, setApprovedFcrs] = useState([])
+  const [teamMembers, setTeamMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [exportingExcel, setExportingExcel] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [downloadingMemberId, setDownloadingMemberId] = useState(null)
   const [error, setError] = useState('')
 
   const rangeLabel = `${format(parseISO(start), 'MMM d, yyyy')} - ${format(parseISO(end), 'MMM d, yyyy')}`
@@ -54,7 +60,7 @@ export const ExportCenter = () => {
       const monthStart = format(startOfMonth(parseISO(start)), 'yyyy-MM-dd')
       const monthEnd = format(endOfMonth(parseISO(end)), 'yyyy-MM-dd')
 
-      const [{ data: fcrData, error: fcrError }, { data: mcpData, error: mcpError }] = await Promise.all([
+      const [{ data: fcrData, error: fcrError }, { data: mcpData, error: mcpError }, { data: approvedData, error: approvedError }, { data: memberData, error: memberError }] = await Promise.all([
         supabase
           .from('fcrs')
           .select(`
@@ -72,11 +78,38 @@ export const ExportCenter = () => {
           .gte('month', monthStart)
           .lte('month', monthEnd)
           .order('month', { ascending: false }),
+        // Per-rep download buttons below use internal approval status
+        // (status = 'approved'), not client acknowledgment -- a different,
+        // broader set than the ack_status-gated fcrs query above.
+        supabase
+          .from('fcrs')
+          .select(`
+            *,
+            account:accounts(company_name, city, trade_terms),
+            creator:user_profiles!fcrs_created_by_fkey(full_name:name)
+          `)
+          .eq('status', 'approved')
+          .gte('visit_date', start)
+          .lte('visit_date', end)
+          .order('visit_date', { ascending: false }),
+        // Same "working team member" list Dashboard's Team Overview uses --
+        // NSM only ever gets Sales Engineers back (RLS), everyone else who
+        // can reach this page sees both.
+        supabase
+          .from('user_profiles')
+          .select('id, name, role')
+          .in('role', ['se', 'bd'])
+          .or('sales_app_role_override.is.null,sales_app_role_override.neq.viewer')
+          .order('name'),
       ])
       if (fcrError) throw fcrError
       if (mcpError) throw mcpError
+      if (approvedError) throw approvedError
+      if (memberError) throw memberError
       setFcrs(fcrData || [])
       setMcpEntries(mcpData || [])
+      setApprovedFcrs(approvedData || [])
+      setTeamMembers(memberData || [])
     } catch (err) {
       setError(err.message || 'Failed to load export data')
     } finally {
@@ -107,6 +140,27 @@ export const ExportCenter = () => {
       setError(err.message || 'Failed to build the PDF export')
     } finally {
       setExportingPdf(false)
+    }
+  }
+
+  // Per-rep breakdown for the "Download by Team Member" section below --
+  // same salesTeamMembers/bdTeamMembers split Dashboard's Team Overview
+  // uses. BD group is hidden entirely for NSM (their RLS never returns BD
+  // members or BD FCRs anyway).
+  const salesTeamMembers = teamMembers.filter(m => m.role === 'se')
+  const bdTeamMembers = teamMembers.filter(m => m.role === 'bd')
+
+  const handleDownloadMember = async (member) => {
+    const memberFcrs = approvedFcrs.filter(f => f.created_by === member.id)
+    if (memberFcrs.length === 0) return
+    setDownloadingMemberId(member.id)
+    setError('')
+    try {
+      await downloadMemberFcrsZip({ fcrs: memberFcrs, memberName: member.name, rangeLabel })
+    } catch (err) {
+      setError(err.message || `Failed to build ${member.name}'s download`)
+    } finally {
+      setDownloadingMemberId(null)
     }
   }
 
@@ -178,6 +232,35 @@ export const ExportCenter = () => {
         </div>
       </div>
 
+      {!loading && teamMembers.length > 0 && (
+        <div className="card">
+          <h2 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+            <Users size={16} /> Download by Team Member
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Every approved Field Contact Report per rep for {rangeLabel}, zipped as individual PDFs.
+          </p>
+          <div className="space-y-6">
+            <MemberDownloadTable
+              title="MBT Sales Team"
+              members={salesTeamMembers}
+              approvedFcrs={approvedFcrs}
+              downloadingMemberId={downloadingMemberId}
+              onDownload={handleDownloadMember}
+            />
+            {role !== ROLES.NSM && (
+              <MemberDownloadTable
+                title="BD Team"
+                members={bdTeamMembers}
+                approvedFcrs={approvedFcrs}
+                downloadingMemberId={downloadingMemberId}
+                onDownload={handleDownloadMember}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
       {loading ? (
         <div className="flex items-center justify-center h-32">
           <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary-600"></div>
@@ -230,6 +313,45 @@ export const ExportCenter = () => {
           )}
         </>
       )}
+    </div>
+  )
+}
+
+// One row per Sales/BD Engineer with their approved-FCR count for the
+// selected range and a per-rep download button -- hidden entirely (returns
+// null) when the team has no members, same as Dashboard's TeamMemberTable,
+// so NSM never renders an empty "BD Team" section.
+const MemberDownloadTable = ({ title, members, approvedFcrs, downloadingMemberId, onDownload }) => {
+  if (members.length === 0) return null
+
+  return (
+    <div>
+      <h4 className="text-sm font-semibold text-gray-700 mb-2">{title}</h4>
+      <div className="space-y-2">
+        {members.map(m => {
+          const count = approvedFcrs.filter(f => f.created_by === m.id).length
+          const downloading = downloadingMemberId === m.id
+          return (
+            <div key={m.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{m.name}</p>
+                <p className="text-xs text-gray-500">
+                  {count} approved FCR{count === 1 ? '' : 's'}
+                </p>
+              </div>
+              <button
+                onClick={() => onDownload(m)}
+                disabled={downloading || count === 0}
+                className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+                title={count === 0 ? 'No approved FCRs in this period' : ''}
+              >
+                <Download size={14} />
+                {downloading ? 'Building ZIP...' : 'Download'}
+              </button>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

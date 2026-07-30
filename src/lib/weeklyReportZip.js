@@ -46,3 +46,33 @@ export const downloadWeeklyReportZip = async ({ acknowledgedFcrs, mcpEntries, la
   a.remove()
   URL.revokeObjectURL(url)
 }
+
+// Zips one member's approved FCRs (internal approval status, independent of
+// whether the account has acknowledged the minutes yet) into a single .zip
+// of the same official per-FCR PDFs fcrPdf.js already produces elsewhere --
+// used by the Export Center's per-rep "Download" buttons so a Commercial AC
+// Head/NSM can grab just one person's approved reports without wading
+// through the consolidated team export.
+export const downloadMemberFcrsZip = async ({ fcrs, memberName, rangeLabel }) => {
+  const zip = new JSZip()
+
+  for (const fcr of fcrs) {
+    const { blob, filename } = await getFCRPdfBlob({
+      record: fcr,
+      account: fcr.account,
+      submitterName: fcr.creator?.full_name || memberName,
+    })
+    zip.file(filename, blob)
+  }
+
+  const content = await zip.generateAsync({ type: 'blob' })
+  const url = URL.createObjectURL(content)
+  const a = document.createElement('a')
+  a.href = url
+  const nameSlug = (memberName || 'Report').replace(/[^a-z0-9]+/gi, '_')
+  a.download = `Approved FCRs - ${nameSlug} - ${rangeLabel}.zip`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
