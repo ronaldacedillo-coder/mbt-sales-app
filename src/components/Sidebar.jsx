@@ -13,6 +13,7 @@ import {
   ChevronRight,
   ArrowLeftRight,
   Download,
+  FileSpreadsheet,
   X
 } from 'lucide-react'
 import { ROLES } from '../utils/roles'
@@ -22,6 +23,10 @@ import { AboutModal } from './AboutModal'
 const PIPELINE_APP_URL = 'https://mbt-pipeline.netlify.app/'
 
 const APPROVER_ROLES = [ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD]
+// Export Center covers both teams' data (RLS-scoped per role, same as
+// everywhere else) -- NSM/Head get their own team's slice, VIEWER/Admin get
+// both, same audience as the Dashboard's Team Overview card.
+const EXPORT_CENTER_ROLES = [ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD, ROLES.VIEWER]
 
 // Static sidebar on desktop/laptop (lg+); below that it's a slide-in drawer
 // controlled by Layout's `sidebarOpen` state, toggled via the hamburger
@@ -77,6 +82,7 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
     { path: '/fcr/approval', label: 'FCR Approvals', icon: CheckCircle2, roles: APPROVER_ROLES, badge: pendingFCRs },
     { path: '/itinerary/approval', label: 'MCP (Plan) Approvals', icon: CheckCircle2, roles: APPROVER_ROLES, badge: pendingItineraries },
     { path: '/reports/weekly', label: 'Weekly Report Download', icon: Download, roles: APPROVER_ROLES },
+    { path: '/reports/export-center', label: 'Export Center', icon: FileSpreadsheet, roles: EXPORT_CENTER_ROLES },
   ]
 
   const filteredNav = navItems.filter(item => item.roles.includes(role))

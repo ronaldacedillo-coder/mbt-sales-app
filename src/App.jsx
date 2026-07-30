@@ -17,6 +17,7 @@ import { AcknowledgeFCR } from './pages/Acknowledge/AcknowledgeFCR'
 import { MCPActual } from './pages/mcp/MCPActual'
 import { MCPArchive } from './pages/mcp/MCPArchive'
 import { WeeklyReportDownload } from './pages/Reports/WeeklyReportDownload'
+import { ExportCenter } from './pages/Reports/ExportCenter'
 import { ROLES } from './utils/roles'
 
 function App() {
@@ -86,6 +87,11 @@ function App() {
         <Route path="/reports/weekly" element={
           <ProtectedRoute allowedRoles={[ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD]}>
             <WeeklyReportDownload />
+          </ProtectedRoute>
+        } />
+        <Route path="/reports/export-center" element={
+          <ProtectedRoute allowedRoles={[ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD, ROLES.VIEWER]}>
+            <ExportCenter />
           </ProtectedRoute>
         } />
 

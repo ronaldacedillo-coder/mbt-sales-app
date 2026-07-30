@@ -6,3 +6,6 @@ dist-*
 .env.admin
 .DS_Store
 *.log
+test-export*
+/*.xlsx
+/*.pdf
