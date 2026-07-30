@@ -150,10 +150,47 @@ export const FCRForm = () => {
     setSendingAck(true)
     setError('')
     try {
+      // The Edge Function re-reads this FCR straight from the database --
+      // it doesn't see whatever's currently typed in this form. Reps who
+      // fill in the attendee's email and immediately hit "Send" without
+      // saving first used to get a confusing "Edge Function returned a
+      // non-2xx status code" (the function correctly bounced them with
+      // "no attendee email set yet," since the DB still had the old blank
+      // value, but that real reason never made it back to the screen).
+      // Persisting the current form here first closes that gap.
+      const payload = {
+        ...record,
+        team_type: teamType,
+        created_by: user.id,
+        submitter_role: role,
+        approver_role: getApproverRole(role),
+      }
+      delete payload.id
+      delete payload.creator
+      delete payload.account
+      const { error: saveError } = await supabase.from('fcrs').update(payload).eq('id', id)
+      if (saveError) throw saveError
+
       const { data, error } = await supabase.functions.invoke('send-fcr-acknowledgment', {
         body: { fcr_id: id },
       })
-      if (error) throw error
+      if (error) {
+        // supabase-js collapses any non-2xx response into a generic
+        // "Edge Function returned a non-2xx status code" and leaves the
+        // function's own JSON body (with the actual reason) unread on
+        // `error.context` -- surface that instead of the generic wrapper
+        // whenever it's available.
+        let message = error.message
+        if (error?.context?.json) {
+          try {
+            const body = await error.context.clone().json()
+            if (body?.error) message = body.error
+          } catch {
+            // Body wasn't JSON (or already consumed) -- fall back below.
+          }
+        }
+        throw new Error(message)
+      }
       if (!data?.ok) throw new Error(data?.error || 'Failed to send the acknowledgment email')
       setRecord(prev => ({ ...prev, ack_status: 'pending', ack_requested_at: new Date().toISOString() }))
     } catch (err) {
