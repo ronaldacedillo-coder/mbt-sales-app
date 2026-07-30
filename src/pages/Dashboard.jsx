@@ -59,8 +59,9 @@ export const Dashboard = () => {
       } else if (role === ROLES.NSM) {
         itineraryQuery = itineraryQuery.in('submitter_role', [ROLES.SALES_ENGINEER, ROLES.NSM])
       } else if (role === ROLES.COMMERCIAL_AC_HEAD) {
-        // Commercial AC Head sees BD and NSM itineraries
-        itineraryQuery = itineraryQuery.in('submitter_role', [ROLES.BD_ENGINEER, ROLES.NSM])
+        // Commercial AC Head sees both teams -- BD/NSM (theirs to approve)
+        // plus MBT Sales (read-only visibility, same as everywhere else).
+        itineraryQuery = itineraryQuery.in('submitter_role', [ROLES.BD_ENGINEER, ROLES.NSM, ROLES.SALES_ENGINEER])
       }
 
       const { data: itineraries } = await itineraryQuery.order('created_at', { ascending: false })
@@ -73,7 +74,9 @@ export const Dashboard = () => {
       } else if (role === ROLES.NSM) {
         fcrQuery = fcrQuery.eq('submitter_role', ROLES.SALES_ENGINEER)
       } else if (role === ROLES.COMMERCIAL_AC_HEAD) {
-        fcrQuery = fcrQuery.eq('submitter_role', ROLES.BD_ENGINEER)
+        // Commercial AC Head sees both teams -- BD (theirs to approve) plus
+        // MBT Sales (read-only visibility, same as everywhere else).
+        fcrQuery = fcrQuery.in('submitter_role', [ROLES.BD_ENGINEER, ROLES.SALES_ENGINEER])
       }
 
       const { data: fcrs } = await fcrQuery.order('created_at', { ascending: false })

@@ -18,9 +18,10 @@ import {
 // Reached from the "Download this week's reports" link in the Friday 3PM
 // digest email (see the weekly-digest Edge Function). Scope is driven
 // entirely by the logged-in user's own role/RLS -- an NSM only ever sees
-// the SE team's FCRs and MCPs, a Head only ever sees the BD team's, exactly
-// like FCR/MCP (Plan) Approvals already work. The date range comes from the
-// email link's ?start=&end= query params, defaulting to the current week.
+// the SE team's FCRs and MCPs, a Head sees both the BD and MBT Sales
+// teams', same as FCR/MCP (Plan) Approvals and everywhere else in the app.
+// The date range comes from the email link's ?start=&end= query params,
+// defaulting to the current week.
 export const WeeklyReportDownload = () => {
   const { user, role } = useAuth()
   const [searchParams] = useSearchParams()
@@ -46,7 +47,11 @@ export const WeeklyReportDownload = () => {
     setLoading(true)
     setError('')
     try {
-      const submitterRole = role === ROLES.NSM ? ROLES.SALES_ENGINEER : ROLES.BD_ENGINEER
+      // NSM only ever gets the SE team back (RLS); Head gets both BD and
+      // MBT Sales.
+      const submitterRoles = role === ROLES.NSM
+        ? [ROLES.SALES_ENGINEER]
+        : [ROLES.BD_ENGINEER, ROLES.SALES_ENGINEER]
 
       const monthDate = parseISO(end)
       const monthStart = format(startOfMonth(monthDate), 'yyyy-MM-dd')
@@ -60,7 +65,7 @@ export const WeeklyReportDownload = () => {
             account:accounts(company_name, city, trade_terms),
             creator:user_profiles!fcrs_created_by_fkey(full_name:name)
           `)
-          .eq('submitter_role', submitterRole)
+          .in('submitter_role', submitterRoles)
           .neq('status', 'draft')
           .gte('visit_date', start)
           .lte('visit_date', end)
@@ -68,7 +73,7 @@ export const WeeklyReportDownload = () => {
         supabase
           .from('mcp_archive')
           .select(`*, generator:user_profiles!mcp_archive_generated_by_fkey(full_name:name)`)
-          .eq('submitter_role', submitterRole)
+          .in('submitter_role', submitterRoles)
           .gte('month', monthStart)
           .lte('month', monthEnd)
           .order('month', { ascending: false }),
@@ -118,7 +123,7 @@ export const WeeklyReportDownload = () => {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Weekly Report Download</h1>
           <p className="text-gray-500 text-sm mt-0.5">
-            {label} &middot; {role === ROLES.NSM ? 'MBT Sales Engineers' : 'Business Development team'}
+            {label} &middot; {role === ROLES.NSM ? 'MBT Sales Engineers' : 'MBT Sales & BD Teams'}
           </p>
         </div>
       </div>

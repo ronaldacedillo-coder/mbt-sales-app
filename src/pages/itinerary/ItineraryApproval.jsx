@@ -75,7 +75,10 @@ export const ItineraryApproval = () => {
       if (role === ROLES.NSM) {
         query = query.in('submitter_role', [ROLES.SALES_ENGINEER, ROLES.NSM])
       } else if (role === ROLES.COMMERCIAL_AC_HEAD) {
-        query = query.in('submitter_role', [ROLES.BD_ENGINEER, ROLES.NSM])
+        // Head sees both teams here -- BD/NSM plans are theirs to approve,
+        // MBT Sales is read-only visibility (canApproveItinerary below keeps
+        // the Approve/Reject buttons NSM-only for those).
+        query = query.in('submitter_role', [ROLES.BD_ENGINEER, ROLES.NSM, ROLES.SALES_ENGINEER])
       }
 
       const { data, error } = await query.order('created_at', { ascending: false })
@@ -289,27 +292,34 @@ export const ItineraryApproval = () => {
               )}
 
               {/* Approve/Reject only make sense for a plan still awaiting a
-                  decision -- once it's approved or rejected, "View Full Plan"
-                  above is the only action left. */}
+                  decision, AND only for the approver it's actually routed to
+                  -- Head can now see MBT Sales plans too (read-only), but
+                  those are still the NSM's call to make. */}
               {item.status === 'pending_approval' && (
-                <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-center justify-end gap-3">
-                  <button
-                    onClick={() => handleReject(item.id)}
-                    disabled={processing === item.id}
-                    className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center gap-2 disabled:opacity-50"
-                  >
-                    <XCircle size={16} />
-                    Reject
-                  </button>
-                  <button
-                    onClick={() => handleApprove(item.id)}
-                    disabled={processing === item.id}
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-                  >
-                    <CheckCircle2 size={16} />
-                    {processing === item.id ? 'Processing...' : 'Approve'}
-                  </button>
-                </div>
+                canApproveItinerary(role, item.submitter_role) ? (
+                  <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-center justify-end gap-3">
+                    <button
+                      onClick={() => handleReject(item.id)}
+                      disabled={processing === item.id}
+                      className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <XCircle size={16} />
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => handleApprove(item.id)}
+                      disabled={processing === item.id}
+                      className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                    >
+                      <CheckCircle2 size={16} />
+                      {processing === item.id ? 'Processing...' : 'Approve'}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-400">
+                    Awaiting {item.submitter_role === ROLES.SALES_ENGINEER ? 'NSM' : 'Commercial AC Head'} approval
+                  </p>
+                )
               )}
             </div>
           ))}

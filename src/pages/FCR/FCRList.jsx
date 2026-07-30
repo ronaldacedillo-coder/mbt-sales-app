@@ -44,7 +44,9 @@ export const FCRList = () => {
       } else if (role === ROLES.NSM) {
         query = query.eq('submitter_role', ROLES.SALES_ENGINEER)
       } else if (role === ROLES.COMMERCIAL_AC_HEAD) {
-        query = query.eq('submitter_role', ROLES.BD_ENGINEER)
+        // Head sees both teams here -- canApprove()/the delete button below
+        // both stay scoped to what Head can actually act on (BD only).
+        query = query.in('submitter_role', [ROLES.BD_ENGINEER, ROLES.SALES_ENGINEER])
       }
 
       const { data, error } = await query.order('created_at', { ascending: false })
@@ -87,9 +89,12 @@ export const FCRList = () => {
     }
   }
 
-  // Commercial AC Head only -- covered by the fcrs_delete_head RLS policy
-  // (BD submissions, the only ones the Head can see/approve here). Handy
-  // for clearing out test/demo/duplicate entries without a database console.
+  // Commercial AC Head only, and BD submissions only -- covered by the
+  // fcrs_delete_head RLS policy. Head can now see MBT Sales FCRs here too,
+  // but delete authority over those stays with the NSM, so the button below
+  // is gated to item.submitter_role === BD_ENGINEER as well as the role
+  // check. Handy for clearing out test/demo/duplicate entries without a
+  // database console.
   const handleDelete = async (id) => {
     if (!confirm('Delete this FCR? This cannot be undone.')) return
     try {
@@ -269,7 +274,7 @@ export const FCRList = () => {
                       </button>
                     </>
                   )}
-                  {role === ROLES.COMMERCIAL_AC_HEAD && (
+                  {role === ROLES.COMMERCIAL_AC_HEAD && item.submitter_role === ROLES.BD_ENGINEER && (
                     <button
                       onClick={() => handleDelete(item.id)}
                       className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
