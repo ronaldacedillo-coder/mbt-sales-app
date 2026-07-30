@@ -123,16 +123,22 @@ export const buildExportReportPdf = async ({ fcrs, mcpEntries, rangeLabel, scope
   sectionTitle('Field Contact Reports')
   if (fcrs.length) {
     table(
-      ['Team', 'Rep', 'Company', 'Visit Date', 'Acknowledged By', 'Acknowledged At'],
+      ['Team', 'Rep', 'Company', 'Visit Date', 'Acknowledged By', 'Designation', 'Email', 'Acknowledged At'],
       fcrs.map(f => [
         teamLabel(f.team_type),
         f.creator?.full_name || 'Unknown',
         f.customer_info?.company_name || f.account?.company_name || '',
         f.visit_date ? format(parseISO(f.visit_date), 'MMM d, yyyy') : '',
-        f.acknowledged_name || '',
+        // Same fallback as excelExport.js: no separate acknowledged_designation
+        // /acknowledged_email is captured at ack time, so those two fall
+        // back to what the FCR was originally sent to (attendee_designation
+        // /attendee_email) -- same person in the overwhelming majority of cases.
+        f.acknowledged_name || f.attendee_name || '',
+        f.attendee_designation || '',
+        f.attendee_email || '',
         f.acknowledged_at ? format(parseISO(f.acknowledged_at), 'MMM d, yyyy h:mm a') : '',
       ]),
-      { 2: { cellWidth: 100 } }
+      { 2: { cellWidth: 70 }, 6: { cellWidth: 90 } }
     )
   } else {
     doc.setFont('helvetica', 'italic')

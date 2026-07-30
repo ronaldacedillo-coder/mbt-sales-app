@@ -118,7 +118,7 @@ const buildFcrSheet = (XLSX, fcrs) => {
   const ws = {}
   const head = [
     'Team', 'Rep', 'Company', 'Visit Date', 'AM/PM',
-    'Acknowledged By', 'Acknowledged At', 'Get Back Items', 'Coverage Notes', 'Minutes of the Meeting',
+    'Acknowledged By', 'Designation', 'Email', 'Acknowledged At', 'Get Back Items', 'Coverage Notes', 'Minutes of the Meeting',
   ]
   const rows = [
     head.map(h => ({ value: h, style: headerCellStyle })),
@@ -131,7 +131,16 @@ const buildFcrSheet = (XLSX, fcrs) => {
         { value: f.customer_info?.company_name || f.account?.company_name || '', style: s },
         { value: f.visit_date ? format(parseISO(f.visit_date), 'MMM d, yyyy') : '', style: s },
         { value: f.period === 'PM' ? 'PM' : 'AM', style: { ...s, alignment: { ...s.alignment, horizontal: 'center' } } },
-        { value: f.acknowledged_name || '', style: s },
+        // acknowledged_name is what the attendee typed/confirmed at ack time
+        // (defaults to attendee_name but they can correct it via "Not you?"
+        // on the acknowledgment page) -- there's no separate
+        // acknowledged_designation/acknowledged_email captured at that step,
+        // so Designation/Email fall back to what the FCR was originally
+        // filed with (attendee_designation/attendee_email), which is the
+        // same person in the overwhelming majority of cases.
+        { value: f.acknowledged_name || f.attendee_name || '', style: s },
+        { value: f.attendee_designation || '', style: s },
+        { value: f.attendee_email || '', style: s },
         { value: f.acknowledged_at ? format(parseISO(f.acknowledged_at), 'MMM d, yyyy h:mm a') : '', style: s },
         { value: f.form_data?.get_back_items || '', style: s },
         { value: f.coverage_notes || '', style: s },
@@ -142,7 +151,7 @@ const buildFcrSheet = (XLSX, fcrs) => {
   writeStyledRows(ws, XLSX, rows)
   ws['!cols'] = [
     { wch: 16 }, { wch: 18 }, { wch: 24 }, { wch: 13 }, { wch: 7 },
-    { wch: 18 }, { wch: 18 }, { wch: 30 }, { wch: 30 }, { wch: 55 },
+    { wch: 18 }, { wch: 16 }, { wch: 24 }, { wch: 18 }, { wch: 30 }, { wch: 30 }, { wch: 55 },
   ]
   ws['!rows'] = [{ hpt: 22 }, ...fcrs.map(() => ({ hpt: 60 }))]
   ws['!freeze'] = { xSplit: 0, ySplit: 1 }
