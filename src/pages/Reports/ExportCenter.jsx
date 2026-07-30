@@ -21,9 +21,10 @@ import {
 // Excel workbook or PDF report covering every acknowledged FCR (including
 // its Minutes of the Meeting) and every MCP (Actual) archive entry in that
 // window. Scope is entirely RLS-driven, same as everywhere else in this
-// app: NSM only ever sees the MBT Sales team, Commercial AC Head only BD,
-// VIEWER/Admin sees both -- so this file never filters by submitter_role
-// itself, it just queries and lets the database decide what comes back.
+// app: NSM only ever sees the MBT Sales team; Commercial AC Head and
+// VIEWER/Admin see both teams -- so this file never filters by
+// submitter_role itself, it just queries and lets the database decide
+// what comes back.
 export const ExportCenter = () => {
   const { role, profile } = useAuth()
 
@@ -39,7 +40,6 @@ export const ExportCenter = () => {
   const rangeLabel = `${format(parseISO(start), 'MMM d, yyyy')} - ${format(parseISO(end), 'MMM d, yyyy')}`
   const scopeLabel =
     role === ROLES.NSM ? 'MBT Sales Team' :
-    role === ROLES.COMMERCIAL_AC_HEAD ? 'Business Development Team' :
     'MBT Sales & BD Teams'
 
   useEffect(() => {
