@@ -39,6 +39,7 @@ export const CUSTOMER_TYPES = [
   { value: 'fitout_contractor', label: 'Fit-out Contractor' },
   { value: 'general_contractor', label: 'General Contractor' },
   { value: 'architect', label: 'Architect' },
+  { value: 'hvac_consultant', label: 'HVAC Consultant' },
   { value: 'land_developer', label: 'Land Developer' },
   { value: 'institutional_account', label: 'Multi-Branch Institutional Account' },
   { value: 'distributor', label: 'Distributor' },

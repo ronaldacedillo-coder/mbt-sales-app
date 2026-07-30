@@ -49,6 +49,12 @@ const APPROACH_STRATEGIES = {
     'Discuss technical documentation and spec sheet availability',
     'Emphasize aesthetics and integration with building design'
   ],
+  hvac_consultant: [
+    'Focus on technical specification support and load/system design assistance',
+    'Highlight energy efficiency data, certifications, and compliance documentation',
+    'Discuss lifecycle cost analysis to support their recommendations to clients',
+    'Emphasize reliability and track record so they feel comfortable specifying the brand'
+  ],
   land_developer: [
     'Focus on long-term partnership across multiple development phases',
     'Highlight scalable solutions for master-planned communities',
