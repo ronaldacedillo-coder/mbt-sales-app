@@ -16,18 +16,42 @@ import {
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 
+const STATUS_FILTERS = [
+  { value: 'pending_approval', label: 'Pending' },
+  { value: 'approved', label: 'Approved' },
+  { value: 'rejected', label: 'Rejected' },
+  { value: 'all', label: 'All' },
+]
+
 export const FCRApproval = () => {
   const { user, role } = useAuth()
   const [fcrs, setFcrs] = useState([])
+  const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState(null)
   const [processing, setProcessing] = useState(null)
+  // Approving/rejecting used to make the FCR vanish from this page for
+  // good, so an approver could never pull it back up to confirm what they'd
+  // signed off on. Defaulting to 'pending_approval' keeps the everyday
+  // workflow unchanged; switching tabs lets them see the FCR that was the
+  // subject of an earlier decision.
+  const [statusFilter, setStatusFilter] = useState('pending_approval')
 
   useEffect(() => {
-    fetchPendingFCRs()
-  }, [user, role])
+    fetchFCRs()
+    fetchAccounts()
+  }, [user, role, statusFilter])
 
-  const fetchPendingFCRs = async () => {
+  // FCRFormBody needs the account's trade_terms to render the Trade Terms
+  // field below (Customer Information itself is a snapshot already stored
+  // on the FCR row) -- without this, that one field silently shows blank
+  // in the reviewer's read-only preview.
+  const fetchAccounts = async () => {
+    const { data } = await supabase.from('accounts').select('id, company_name, city, trade_terms')
+    setAccounts(data || [])
+  }
+
+  const fetchFCRs = async () => {
     if (!user) return
     setLoading(true)
 
@@ -39,7 +63,10 @@ export const FCRApproval = () => {
           account:accounts(company_name, city),
           creator:user_profiles!fcrs_created_by_fkey(full_name:name, role)
         `)
-        .eq('status', 'pending_approval')
+
+      if (statusFilter !== 'all') {
+        query = query.eq('status', statusFilter)
+      }
 
       if (role === ROLES.NSM) {
         query = query.eq('submitter_role', ROLES.SALES_ENGINEER)
@@ -69,7 +96,7 @@ export const FCRApproval = () => {
         })
         .eq('id', id)
       if (error) throw error
-      fetchPendingFCRs()
+      fetchFCRs()
     } catch (error) {
       console.error('Error approving FCR:', error)
       alert('Failed to approve FCR')
@@ -93,13 +120,31 @@ export const FCRApproval = () => {
         })
         .eq('id', id)
       if (error) throw error
-      fetchPendingFCRs()
+      fetchFCRs()
     } catch (error) {
       console.error('Error rejecting FCR:', error)
       alert('Failed to reject FCR')
     } finally {
       setProcessing(null)
     }
+  }
+
+  const statusBadge = (status) => {
+    const styles = {
+      approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      rejected: 'bg-red-50 text-red-700 border-red-200',
+      pending_approval: 'bg-amber-50 text-amber-700 border-amber-200',
+    }
+    const labels = {
+      approved: 'Approved',
+      rejected: 'Rejected',
+      pending_approval: 'Pending Approval',
+    }
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${styles[status] || 'bg-gray-50 text-gray-700 border-gray-200'}`}>
+        {labels[status] || status}
+      </span>
+    )
   }
 
   if (loading) {
@@ -115,15 +160,37 @@ export const FCRApproval = () => {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">FCR Approvals</h1>
         <p className="text-gray-500 mt-1">
-          Review and approve pending field contact reports
+          Review pending field contact reports, or look back at ones you've already decided on
         </p>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {STATUS_FILTERS.map((f) => (
+          <button
+            key={f.value}
+            onClick={() => setStatusFilter(f.value)}
+            className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
+              statusFilter === f.value
+                ? 'bg-primary-600 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {f.label}
+          </button>
+        ))}
       </div>
 
       {fcrs.length === 0 ? (
         <div className="card text-center py-16">
           <CheckCircle2 size={48} className="mx-auto text-emerald-300 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900">All caught up!</h3>
-          <p className="text-gray-500 mt-1">No pending FCRs to review</p>
+          <h3 className="text-lg font-medium text-gray-900">
+            {statusFilter === 'pending_approval' ? 'All caught up!' : 'Nothing here'}
+          </h3>
+          <p className="text-gray-500 mt-1">
+            {statusFilter === 'all'
+              ? 'No FCRs found'
+              : `No ${STATUS_FILTERS.find(f => f.value === statusFilter)?.label.toLowerCase()} FCRs`}
+          </p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -135,7 +202,7 @@ export const FCRApproval = () => {
                     <h3 className="text-lg font-semibold text-gray-900">
                       {item.customer_info?.company_name || item.account?.company_name || 'Field Contact Report'}
                     </h3>
-                    <span className="badge badge-pending">Pending Approval</span>
+                    {statusBadge(item.status)}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-3">
@@ -161,9 +228,11 @@ export const FCRApproval = () => {
                 <div className="flex items-center gap-2 ml-4">
                   <button
                     onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
-                    className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                    title="View the full FCR being submitted for approval"
                   >
-                    {expandedId === item.id ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                    {expandedId === item.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                    {expandedId === item.id ? 'Hide Full FCR' : 'View Full FCR'}
                   </button>
                 </div>
               </div>
@@ -179,31 +248,36 @@ export const FCRApproval = () => {
                     }}
                     onChange={() => {}}
                     teamType={item.team_type || 'mbt_sales'}
+                    accounts={accounts}
                     readOnly
                     submitterName={item.creator?.full_name}
                   />
                 </div>
               )}
 
-              {/* Action Buttons */}
-              <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-center justify-end gap-3">
-                <button
-                  onClick={() => handleReject(item.id)}
-                  disabled={processing === item.id}
-                  className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center gap-2 disabled:opacity-50"
-                >
-                  <XCircle size={16} />
-                  Reject
-                </button>
-                <button
-                  onClick={() => handleApprove(item.id)}
-                  disabled={processing === item.id}
-                  className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-                >
-                  <CheckCircle2 size={16} />
-                  {processing === item.id ? 'Processing...' : 'Approve'}
-                </button>
-              </div>
+              {/* Approve/Reject only make sense for an FCR still awaiting a
+                  decision -- once it's approved or rejected, "View Full FCR"
+                  above is the only action left. */}
+              {item.status === 'pending_approval' && (
+                <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-center justify-end gap-3">
+                  <button
+                    onClick={() => handleReject(item.id)}
+                    disabled={processing === item.id}
+                    className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <XCircle size={16} />
+                    Reject
+                  </button>
+                  <button
+                    onClick={() => handleApprove(item.id)}
+                    disabled={processing === item.id}
+                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  >
+                    <CheckCircle2 size={16} />
+                    {processing === item.id ? 'Processing...' : 'Approve'}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
