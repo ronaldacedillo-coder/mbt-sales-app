@@ -17,6 +17,7 @@ export const downloadWeeklyReportZip = async ({ acknowledgedFcrs, mcpEntries, la
       record: fcr,
       account: fcr.account,
       submitterName: fcr.creator?.full_name,
+      approverName: fcr.approver?.full_name,
     })
     fcrFolder.file(filename, blob)
   }
@@ -61,6 +62,7 @@ export const downloadMemberFcrsZip = async ({ fcrs, memberName, rangeLabel }) =>
       record: fcr,
       account: fcr.account,
       submitterName: fcr.creator?.full_name || memberName,
+      approverName: fcr.approver?.full_name,
     })
     zip.file(filename, blob)
   }

@@ -68,7 +68,11 @@ export const FCRForm = () => {
   const fetchFCR = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase.from('fcrs').select('*').eq('id', id).single()
+      const { data, error } = await supabase
+        .from('fcrs')
+        .select('*, approver:user_profiles!fcrs_approved_by_fkey(full_name:name)')
+        .eq('id', id)
+        .single()
       if (error) throw error
       if (data) {
         const resolvedTeamType = data.team_type || myTeamType
@@ -228,7 +232,7 @@ export const FCRForm = () => {
     setError('')
     try {
       const account = accounts.find(a => a.id === record.account_id)
-      await downloadFCRPdf({ record, account, submitterName: profile?.full_name })
+      await downloadFCRPdf({ record, account, submitterName: profile?.full_name, approverName: record.approver?.full_name })
     } catch (err) {
       console.error('Failed to export FCR PDF:', err)
       setError('Failed to generate the PDF file')

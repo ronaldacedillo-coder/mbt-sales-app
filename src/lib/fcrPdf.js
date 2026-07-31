@@ -8,8 +8,13 @@ import { buildFcrMinutesText } from './fcrMinutes'
 // of a browser download per file). Only ever called once the account has
 // acknowledged the meeting minutes (see the gating in FCRForm.jsx) -- the
 // acknowledgment block below is part of the exported record precisely so
-// the PDF itself is proof of that.
-const buildFCRDoc = async ({ record, account, submitterName }) => {
+// the PDF itself is proof of that. No customer signature line is collected
+// here -- the account already confirmed the meeting by email (see Account
+// Acknowledgment below), so a blank signature block would just be
+// redundant paperwork. What the export DOES formalize is the internal
+// approval: a sign-off line for whoever approved the FCR (the NSM for MBT
+// Sales reports, the Commercial AC Head for BD reports).
+const buildFCRDoc = async ({ record, account, submitterName, approverName }) => {
   const [{ jsPDF: JsPDF }, autoTableModule] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -207,8 +212,9 @@ const buildFCRDoc = async ({ record, account, submitterName }) => {
   y += minutesLines.length * 10 + 14
   doc.setFont('helvetica', 'normal')
 
-  // Acknowledgment block -- proof the account confirmed the minutes.
-  sectionTitle('Account Acknowledgment')
+  // Acknowledgment block -- proof the account confirmed the minutes by
+  // email already, so no physical customer signature is collected below.
+  sectionTitle('Account Acknowledgment (via Email)')
   kv([
     ['Attendee (Account side)', record.attendee_name],
     ['Attendee Designation', record.attendee_designation],
@@ -218,14 +224,23 @@ const buildFCRDoc = async ({ record, account, submitterName }) => {
     ['Acknowledged At', record.acknowledged_at ? format(parseISO(record.acknowledged_at), 'MMMM d, yyyy h:mm a') : ''],
   ])
 
+  // FCR Approval -- the internal sign-off, in place of a customer
+  // signature. Approver title depends on which team filed the report.
+  const approverLabel = isBD ? 'Commercial AC Head' : 'NSM'
+  sectionTitle('FCR Approval')
+  kv([
+    [`Approved By (${approverLabel})`, approverName],
+    ['Approved At', record.approved_at ? format(parseISO(record.approved_at), 'MMMM d, yyyy h:mm a') : ''],
+  ])
+
   ensureSpace(40)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(8)
-  doc.text('CUSTOMER -- SIGNATURE OVER PRINTED NAME', margin, y)
+  doc.text(`${approverLabel.toUpperCase()} -- SIGNATURE OVER PRINTED NAME`, margin, y)
   y += 10
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
-  doc.text(record.customer_signature_name || record.acknowledged_name || '-', margin, y + 10)
+  doc.text(approverName || '-', margin, y + 10)
   doc.line(margin, y + 14, margin + 260, y + 14)
 
   // Filename indicates who filed the report and when, per the required

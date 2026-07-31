@@ -63,7 +63,8 @@ export const WeeklyReportDownload = () => {
           .select(`
             *,
             account:accounts(company_name, city, trade_terms),
-            creator:user_profiles!fcrs_created_by_fkey(full_name:name)
+            creator:user_profiles!fcrs_created_by_fkey(full_name:name),
+            approver:user_profiles!fcrs_approved_by_fkey(full_name:name)
           `)
           .in('submitter_role', submitterRoles)
           .neq('status', 'draft')

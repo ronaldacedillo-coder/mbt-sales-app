@@ -86,7 +86,8 @@ export const ExportCenter = () => {
           .select(`
             *,
             account:accounts(company_name, city, trade_terms),
-            creator:user_profiles!fcrs_created_by_fkey(full_name:name)
+            creator:user_profiles!fcrs_created_by_fkey(full_name:name),
+            approver:user_profiles!fcrs_approved_by_fkey(full_name:name)
           `)
           .eq('status', 'approved')
           .gte('visit_date', start)
