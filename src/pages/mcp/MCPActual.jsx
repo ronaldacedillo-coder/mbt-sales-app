@@ -104,7 +104,7 @@ export const MCPActual = () => {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">MCP (Actual)</h1>
-          <p className="text-gray-500 mt-1">What actually happened -- built from your acknowledged Field Contact Reports</p>
+          <p className="text-gray-500 mt-1">What actually happened -- built from your approved Field Contact Reports</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <input
@@ -117,7 +117,7 @@ export const MCPActual = () => {
             onClick={handleGenerateAndExport}
             disabled={exporting || visits.length === 0}
             className="btn-primary flex items-center gap-2 disabled:opacity-50"
-            title={visits.length === 0 ? 'No acknowledged FCRs for this month yet' : ''}
+            title={visits.length === 0 ? 'No approved FCRs for this month yet' : ''}
           >
             <FileText size={16} /> {exporting ? 'Generating...' : 'Generate & Export PDF'}
           </button>
@@ -145,7 +145,7 @@ export const MCPActual = () => {
         </div>
         <div>
           <p className="text-2xl font-bold text-gray-900">{visits.length}</p>
-          <p className="text-sm text-gray-500">Acknowledged visit{visits.length === 1 ? '' : 's'} in {format(parseISO(month), 'MMMM yyyy')}</p>
+          <p className="text-sm text-gray-500">Approved visit{visits.length === 1 ? '' : 's'} in {format(parseISO(month), 'MMMM yyyy')}</p>
         </div>
       </div>
 

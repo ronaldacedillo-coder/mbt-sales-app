@@ -1,11 +1,19 @@
 import { startOfMonth, endOfMonth, format } from 'date-fns'
 import { supabase } from './supabase'
 
-// MCP (Actual) is built from FCRs the account has acknowledged -- that's
-// the only signal we trust that a visit really happened as described. Each
-// acknowledged FCR becomes one "visit" in the same shape MonthCalendar and
-// the MCP week-grid helpers (mcpWeeks.js) already expect for MCP (Plan),
-// so both screens can reuse all of that existing rendering code untouched.
+// MCP (Actual) is built from FCRs that have cleared BOTH gates: the account
+// acknowledged the meeting really happened (ack_status), and the NSM/Head
+// approved the report itself (status). Acknowledged-but-still-pending (or
+// rejected) FCRs no longer count -- only a fully approved FCR should show
+// up as a visit here. In practice every approved FCR is already
+// acknowledged (the only way an FCR reaches pending_approval is via the
+// acknowledge_fcr RPC or the "Submit for Approval" button, both of which
+// require ack_status = 'acknowledged' first -- see FCRForm.jsx), so this is
+// mostly a defensive belt-and-suspenders check rather than a behavior
+// change for well-formed data. Each qualifying FCR becomes one "visit" in
+// the same shape MonthCalendar and the MCP week-grid helpers (mcpWeeks.js)
+// already expect for MCP (Plan), so both screens can reuse all of that
+// existing rendering code untouched.
 export const fetchAcknowledgedVisits = async ({ userId, month }) => {
   const monthDate = typeof month === 'string' ? new Date(month) : month
   const start = format(startOfMonth(monthDate), 'yyyy-MM-dd')
@@ -16,6 +24,7 @@ export const fetchAcknowledgedVisits = async ({ userId, month }) => {
     .select('id, account_id, visit_date, period')
     .eq('created_by', userId)
     .eq('ack_status', 'acknowledged')
+    .eq('status', 'approved')
     .gte('visit_date', start)
     .lte('visit_date', end)
     .order('visit_date')
