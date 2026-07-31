@@ -145,20 +145,20 @@ export const AccountForm = () => {
   // utils/roles.js), which is what this shared user_profiles table uses
   // regardless of which app you're in.
   //
-  // EXCLUDED_MEMBER_IDS -- reps kept out of the assignment dropdown by
-  // request (e.g. no longer covering accounts here), without touching
-  // their actual user_profiles.role, which is shared with MBT Project
-  // Pipeline and shouldn't be changed just to hide someone from this list.
-  // Elmer Anthony Cubita, 2026-07-26.
-  const EXCLUDED_MEMBER_IDS = ['57a08234-7fd6-4c3b-be5a-f3c0342e3ec5']
-
+  // Reps downgraded to view-only in this app via sales_app_role_override
+  // (e.g. Elmer Anthony Cubita, Joseph Bryan Del Espiritu Santo -- no
+  // longer actively covering accounts here) are excluded the same way
+  // Dashboard's Team Overview and Export Center already do, rather than a
+  // one-off hardcoded ID list -- keeps every "who's on the team" list in
+  // the app in sync automatically.
   const fetchTeamMembers = async () => {
     const { data } = await supabase
       .from('user_profiles')
       .select('id, name, role')
       .in('role', ['se', 'bd'])
+      .or('sales_app_role_override.is.null,sales_app_role_override.neq.viewer')
       .order('name')
-    setTeamMembers((data || []).filter(m => !EXCLUDED_MEMBER_IDS.includes(m.id)))
+    setTeamMembers(data || [])
   }
 
   const salesEngineers = teamMembers.filter(m => m.role === 'se')
