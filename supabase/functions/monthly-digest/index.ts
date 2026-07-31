@@ -235,6 +235,12 @@ async function sendEmail(to: string, subject: string, html: string) {
       tls: true,
       auth: { username: GMAIL_USER, password: GMAIL_APP_PASSWORD },
     },
+    // Without this, denomailer's quoted-printable encoder can emit a
+    // trailing "=20" (an escaped space right before a soft line-wrap) that
+    // some mail clients render literally instead of decoding -- shows up
+    // as stray "=20" text in the email body. This is denomailer's own
+    // documented workaround for that class of line-break encoding bug.
+    debug: { encodeLB: true },
   });
   try {
     await client.send({
