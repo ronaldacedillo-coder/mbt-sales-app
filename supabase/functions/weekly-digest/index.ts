@@ -220,6 +220,24 @@ Deno.serve(async (_req: Request) => {
   }
 });
 
+// Our template literals put a real newline + leading indentation between
+// tags (e.g. "</p>\n    <div>...") for readability in this source file.
+// denomailer's quoted-printable encoder can turn that literal whitespace
+// run into an escaped "=20" that isn't followed by a soft-wrap it can
+// safely fold away, and some clients (Gmail included) then render the
+// "=20" as literal visible text instead of collapsing it -- that's the
+// stray "=20" lines showing up in the sent email. Collapsing all
+// whitespace between tags before sending removes the trigger entirely
+// (it's inert for rendering -- browsers/email clients already collapse
+// inter-tag whitespace) and is more reliable than any denomailer-side
+// encoding flag.
+function minifyHtml(html: string): string {
+  return html
+    .replace(/\n\s*/g, " ") // collapse embedded newlines + indentation to a single space
+    .replace(/>\s+</g, "><") // then drop the now-single space between adjacent tags entirely
+    .trim();
+}
+
 async function sendEmail(to: string, subject: string, html: string) {
   if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
     console.log("GMAIL_USER/GMAIL_APP_PASSWORD not set -- skipping send to", to);
@@ -232,11 +250,6 @@ async function sendEmail(to: string, subject: string, html: string) {
       tls: true,
       auth: { username: GMAIL_USER, password: GMAIL_APP_PASSWORD },
     },
-    // Without this, denomailer's quoted-printable encoder can emit a
-    // trailing "=20" (an escaped space right before a soft line-wrap) that
-    // some mail clients render literally instead of decoding -- shows up
-    // as stray "=20" text in the email body. This is denomailer's own
-    // documented workaround for that class of line-break encoding bug.
     debug: { encodeLB: true },
   });
   try {
@@ -245,7 +258,7 @@ async function sendEmail(to: string, subject: string, html: string) {
       to: [to],
       subject,
       content: "This email contains HTML content -- please view it in an HTML-capable email client.",
-      html,
+      html: minifyHtml(html),
     });
     return { sent: true };
   } catch (err) {
