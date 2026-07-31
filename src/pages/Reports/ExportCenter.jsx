@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ROLES } from '../../utils/roles'
@@ -30,9 +30,13 @@ import {
 // what comes back.
 export const ExportCenter = () => {
   const { role, profile } = useAuth()
+  // Optional ?start=&end= lets a link (e.g. the monthly MCP (Actual) digest
+  // email) land here pre-scoped to a specific period instead of defaulting
+  // to the current month -- same idea as Weekly Report Download's params.
+  const [searchParams] = useSearchParams()
 
-  const [start, setStart] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'))
-  const [end, setEnd] = useState(format(new Date(), 'yyyy-MM-dd'))
+  const [start, setStart] = useState(searchParams.get('start') || format(startOfMonth(new Date()), 'yyyy-MM-dd'))
+  const [end, setEnd] = useState(searchParams.get('end') || format(new Date(), 'yyyy-MM-dd'))
   const [fcrs, setFcrs] = useState([])
   const [mcpEntries, setMcpEntries] = useState([])
   const [approvedFcrs, setApprovedFcrs] = useState([])
