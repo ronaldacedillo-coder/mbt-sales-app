@@ -143,10 +143,16 @@ Deno.serve(async (_req: Request) => {
     const { start, end, label } = getPrevMonthRange();
     const downloadUrl = `${APP_URL}#/export?start=${start}&end=${end}`;
 
+    // Excludes anyone forced to VIEWER in this app via sales_app_role_override
+    // (e.g. someone kept on the roster in MBT Project Pipeline but who should
+    // only ever have read-only access here) -- same exclusion pattern used
+    // everywhere else a team-member list is built (Dashboard, Export Center,
+    // AccountForm).
     const { data: reps, error: repsError } = await supabase
       .from("user_profiles")
       .select("id, name, role")
-      .in("role", ["se", "bd", "nsm", "head"]);
+      .in("role", ["se", "bd", "nsm", "head"])
+      .or("sales_app_role_override.is.null,sales_app_role_override.neq.viewer");
     if (repsError) throw repsError;
 
     const seReps = (reps || []).filter((r) => r.role === "se");
