@@ -252,6 +252,13 @@ export const ItineraryForm = () => {
             <input
               type="month"
               value={formData.month ? format(parseISO(formData.month), 'yyyy-MM') : ''}
+              // MCP (Plan) is a forward-looking schedule -- a rep proposes
+              // visits for a month that hasn't happened yet, so the picker
+              // only allows the current month or later. Doesn't retroactively
+              // block an already-saved past month from displaying/editing
+              // (min just constrains what a new pick can be), which matters
+              // for old drafts.
+              min={format(startOfMonth(new Date()), 'yyyy-MM')}
               onChange={(e) => setFormData(prev => ({ ...prev, month: e.target.value + '-01' }))}
               className="input disabled:bg-gray-50 disabled:text-gray-500"
               disabled={readOnly}
