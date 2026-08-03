@@ -98,23 +98,26 @@ export const FCRForm = () => {
     setSaving(true)
     setError('')
     try {
-      const payload = {
-        ...record,
-        status,
-        team_type: teamType,
-        created_by: user.id,
-        submitter_role: role,
-        approver_role: getApproverRole(role),
-      }
+      const payload = { ...record, status, team_type: teamType }
       delete payload.id
       delete payload.creator
       delete payload.account
       delete payload.approver
 
       if (isEdit) {
+        // created_by/submitter_role/approver_role are set once at creation
+        // and must never change on a later save -- an approver opening a
+        // draft/rejected FCR they don't own (to review it) would otherwise
+        // silently reassign it to themselves the moment they hit Save.
+        delete payload.created_by
+        delete payload.submitter_role
+        delete payload.approver_role
         const { error } = await supabase.from('fcrs').update(payload).eq('id', id)
         if (error) throw error
       } else {
+        payload.created_by = user.id
+        payload.submitter_role = role
+        payload.approver_role = getApproverRole(role)
         const { error } = await supabase.from('fcrs').insert([payload])
         if (error) throw error
       }
@@ -163,17 +166,16 @@ export const FCRForm = () => {
       // "no attendee email set yet," since the DB still had the old blank
       // value, but that real reason never made it back to the screen).
       // Persisting the current form here first closes that gap.
-      const payload = {
-        ...record,
-        team_type: teamType,
-        created_by: user.id,
-        submitter_role: role,
-        approver_role: getApproverRole(role),
-      }
+      const payload = { ...record, team_type: teamType }
       delete payload.id
       delete payload.creator
       delete payload.account
       delete payload.approver
+      // See handleSave -- ownership fields are set once at creation and
+      // must not be overwritten by a later save.
+      delete payload.created_by
+      delete payload.submitter_role
+      delete payload.approver_role
       const { error: saveError } = await supabase.from('fcrs').update(payload).eq('id', id)
       if (saveError) throw saveError
 
@@ -244,9 +246,13 @@ export const FCRForm = () => {
   }
 
   // VIEWER (Product Manager / HVAC Director) never edits an FCR, regardless
-  // of its status -- everything below renders read-only for them.
+  // of its status -- everything below renders read-only for them. Same for
+  // anyone opening an existing FCR they didn't create (an NSM/Head reviewing
+  // a report routed to them, reached from the FCR list) -- only the
+  // original submitter can ever edit their own draft/rejected FCR.
   const isViewer = role === ROLES.VIEWER
-  const readOnly = isViewer || (isEdit && !['draft', 'rejected'].includes(record.status))
+  const isOwner = !isEdit || record.created_by === user.id
+  const readOnly = isViewer || !isOwner || (isEdit && !['draft', 'rejected'].includes(record.status))
 
   if (loading) {
     return (
