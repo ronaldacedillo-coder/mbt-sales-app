@@ -109,6 +109,7 @@ export const FCRForm = () => {
       delete payload.id
       delete payload.creator
       delete payload.account
+      delete payload.approver
 
       if (isEdit) {
         const { error } = await supabase.from('fcrs').update(payload).eq('id', id)
@@ -172,6 +173,7 @@ export const FCRForm = () => {
       delete payload.id
       delete payload.creator
       delete payload.account
+      delete payload.approver
       const { error: saveError } = await supabase.from('fcrs').update(payload).eq('id', id)
       if (saveError) throw saveError
 
