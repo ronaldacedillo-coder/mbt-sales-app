@@ -10,7 +10,7 @@ import {
   format,
   parseISO,
 } from 'date-fns'
-import { Plus } from 'lucide-react'
+import { Plus, Pencil } from 'lucide-react'
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -100,10 +100,16 @@ export const MonthCalendar = ({
                       key={v.id || i}
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onSelectVisit && onSelectVisit(v.id) }}
-                      className="w-full text-left px-1.5 py-1 rounded bg-primary-50 hover:bg-primary-100 border border-primary-100 text-[11px] leading-tight print:bg-white print:border-black print:rounded-none"
+                      className="w-full text-left px-1.5 py-1 rounded bg-primary-50 hover:bg-primary-100 border border-primary-100 text-[11px] leading-tight print:bg-white print:border-black print:rounded-none group/chip"
+                      title={editable ? 'Edit this visit' : undefined}
                     >
-                      <div className="font-medium text-primary-800 truncate print:text-black">
-                        {acc?.company_name || 'Unassigned account'}
+                      <div className="flex items-start justify-between gap-1">
+                        <div className="font-medium text-primary-800 truncate print:text-black">
+                          {acc?.company_name || 'Unassigned account'}
+                        </div>
+                        {editable && (
+                          <Pencil size={10} className="mt-0.5 shrink-0 text-primary-400 group-hover/chip:text-primary-700 print:hidden" />
+                        )}
                       </div>
                       {v.purpose && <div className="text-primary-600 truncate print:text-black">{v.purpose}</div>}
                     </button>

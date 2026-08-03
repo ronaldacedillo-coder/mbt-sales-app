@@ -17,7 +17,9 @@ import {
   AlertCircle,
   ClipboardCheck,
   List,
-  CalendarDays
+  CalendarDays,
+  X,
+  Pencil
 } from 'lucide-react'
 import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns'
 
@@ -39,6 +41,11 @@ export const ItineraryForm = () => {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [view, setView] = useState('calendar')
+  // Entry now happens directly on the calendar via this modal -- clicking a
+  // day (new) or a visit chip (edit) opens it right here instead of
+  // switching to the List view, so the whole itinerary is entered from one
+  // page. { mode: 'new'|'edit', draft, index } while open, null when closed.
+  const [modalVisit, setModalVisit] = useState(null)
 
   // VIEWER (Product Manager / HVAC Director) can open any MCP (Plan) to
   // look at it, but never edits one -- every input, calendar drag, and
@@ -96,41 +103,62 @@ export const ItineraryForm = () => {
     }
   }
 
+  const blankVisit = (prefillDate = '') => ({
+    id: crypto.randomUUID(),
+    account_id: '',
+    visit_date: prefillDate,
+    period: 'AM',
+    purpose: '',
+    estimated_duration: '',
+    location: '',
+    notes: ''
+  })
+
   const addVisit = (prefillDate = '') => {
-    const newId = crypto.randomUUID()
+    const draft = blankVisit(prefillDate)
+    setFormData(prev => ({ ...prev, visits: [...prev.visits, draft] }))
+    return draft.id
+  }
+
+  // Clicking an empty day (or its "+") on the calendar opens the entry
+  // modal pre-filled with that date, in "new" mode -- nothing is added to
+  // formData.visits until Submit is pressed inside the modal.
+  const addVisitFromCalendar = (dateStr) => {
+    setModalVisit({ mode: 'new', draft: blankVisit(dateStr) })
+  }
+
+  // Clicking an existing visit chip opens the same modal, pre-filled with
+  // that visit, in "edit" mode.
+  const selectVisitFromCalendar = (visitId) => {
+    const index = formData.visits.findIndex(v => v.id === visitId)
+    if (index === -1) return
+    setModalVisit({ mode: 'edit', index, draft: { ...formData.visits[index] } })
+  }
+
+  const handleModalFieldChange = (field, value) => {
+    setModalVisit(prev => prev && ({ ...prev, draft: { ...prev.draft, [field]: value } }))
+  }
+
+  const handleModalSubmit = () => {
+    if (!modalVisit) return
+    if (!modalVisit.draft.account_id || !modalVisit.draft.visit_date) {
+      setError('Pick an account and a visit date before submitting.')
+      return
+    }
+    setError('')
     setFormData(prev => ({
       ...prev,
-      visits: [...prev.visits, {
-        id: newId,
-        account_id: '',
-        visit_date: prefillDate,
-        period: 'AM',
-        purpose: '',
-        estimated_duration: '',
-        location: '',
-        notes: ''
-      }]
+      visits: modalVisit.mode === 'edit'
+        ? prev.visits.map((v, i) => (i === modalVisit.index ? modalVisit.draft : v))
+        : [...prev.visits, modalVisit.draft]
     }))
-    return newId
+    setModalVisit(null)
   }
 
-  // Clicking a day in the calendar view adds a visit pre-filled with that
-  // date and switches to the List view so the SE can fill in the rest.
-  const addVisitFromCalendar = (dateStr) => {
-    const newId = addVisit(dateStr)
-    setView('list')
-    setTimeout(() => {
-      document.getElementById(`visit-${newId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }, 50)
-  }
-
-  // Clicking an existing visit chip in the calendar jumps to its card in
-  // the List view instead of duplicating the edit UI inside the grid.
-  const selectVisitFromCalendar = (visitId) => {
-    setView('list')
-    setTimeout(() => {
-      document.getElementById(`visit-${visitId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    }, 50)
+  const handleModalDelete = () => {
+    if (!modalVisit || modalVisit.mode !== 'edit') return
+    setFormData(prev => ({ ...prev, visits: prev.visits.filter((_, i) => i !== modalVisit.index) }))
+    setModalVisit(null)
   }
 
   const updateVisit = (index, field, value) => {
@@ -501,6 +529,190 @@ export const ItineraryForm = () => {
             </button>
           </>
         )}
+      </div>
+
+      {modalVisit && (
+        <VisitEntryModal
+          modalVisit={modalVisit}
+          accounts={accounts}
+          readOnly={readOnly}
+          onFieldChange={handleModalFieldChange}
+          onSubmit={handleModalSubmit}
+          onDelete={handleModalDelete}
+          onClose={() => setModalVisit(null)}
+          onLogFcr={(visit) => navigate('/fcr/new', {
+            state: { prefill: { account_id: visit.account_id, visit_date: visit.visit_date } }
+          })}
+        />
+      )}
+    </div>
+  )
+}
+
+// One-page calendar entry: opened by clicking a day (new visit) or an
+// existing chip (edit visit) in MonthCalendar -- see addVisitFromCalendar/
+// selectVisitFromCalendar above. Submit both adds a new visit and saves
+// edits to an existing one; Delete only shows up in edit mode.
+const VisitEntryModal = ({ modalVisit, accounts, readOnly, onFieldChange, onSubmit, onDelete, onClose, onLogFcr }) => {
+  const { mode, draft } = modalVisit
+  const isEdit = mode === 'edit'
+
+  return (
+    <div
+      className="fixed inset-0 bg-gray-900/40 z-50 flex items-center justify-center p-4"
+      onClick={onClose}
+      aria-hidden="true"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={isEdit ? 'Edit visit' : 'Add visit'}
+        className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+            {isEdit ? <Pencil size={16} className="text-primary-600" /> : <Plus size={16} className="text-primary-600" />}
+            {isEdit ? 'Edit Visit' : 'Add Visit'}
+          </h3>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-3 max-h-[70vh] overflow-y-auto">
+          <div>
+            <label className="label text-xs">Account</label>
+            <select
+              value={draft.account_id}
+              onChange={(e) => onFieldChange('account_id', e.target.value)}
+              className="input text-sm disabled:bg-gray-50 disabled:text-gray-500"
+              autoFocus={!readOnly}
+              disabled={readOnly}
+            >
+              <option value="">Select account</option>
+              {accounts.map(acc => (
+                <option key={acc.id} value={acc.id}>{acc.company_name} ({acc.city})</option>
+              ))}
+            </select>
+            {accounts.length === 0 && (
+              <p className="text-xs text-amber-600 mt-1">
+                No profiled accounts yet -- <Link to="/accounts/new" className="underline">create one</Link> (with Trade Terms filled in) first.
+              </p>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="label text-xs">Visit Date</label>
+              <input
+                type="date"
+                value={draft.visit_date}
+                onChange={(e) => onFieldChange('visit_date', e.target.value)}
+                className="input text-sm disabled:bg-gray-50 disabled:text-gray-500"
+                disabled={readOnly}
+              />
+            </div>
+            <div>
+              <label className="label text-xs">AM / PM</label>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+                {['AM', 'PM'].map(p => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => onFieldChange('period', p)}
+                    disabled={readOnly}
+                    className={`flex-1 py-2 font-medium transition-colors disabled:cursor-default ${
+                      (draft.period || 'AM') === p ? 'bg-primary-600 text-white' : 'bg-white text-gray-500 hover:bg-gray-50 disabled:hover:bg-white'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="label text-xs">Estimated Duration</label>
+            <input
+              type="text"
+              value={draft.estimated_duration}
+              onChange={(e) => onFieldChange('estimated_duration', e.target.value)}
+              className="input text-sm disabled:bg-gray-50 disabled:text-gray-500"
+              placeholder="e.g., 2 hours"
+              disabled={readOnly}
+            />
+          </div>
+
+          <div>
+            <label className="label text-xs">Purpose</label>
+            <input
+              type="text"
+              value={draft.purpose}
+              onChange={(e) => onFieldChange('purpose', e.target.value)}
+              className="input text-sm disabled:bg-gray-50 disabled:text-gray-500"
+              placeholder="Purpose of visit..."
+              disabled={readOnly}
+            />
+          </div>
+
+          <div>
+            <label className="label text-xs">Location</label>
+            <input
+              type="text"
+              value={draft.location}
+              onChange={(e) => onFieldChange('location', e.target.value)}
+              className="input text-sm disabled:bg-gray-50 disabled:text-gray-500"
+              placeholder="Meeting location..."
+              disabled={readOnly}
+            />
+          </div>
+
+          <div>
+            <label className="label text-xs">Visit Notes</label>
+            <textarea
+              value={draft.notes}
+              onChange={(e) => onFieldChange('notes', e.target.value)}
+              className="input text-sm min-h-[60px] disabled:bg-gray-50 disabled:text-gray-500"
+              placeholder="Additional notes for this visit..."
+              disabled={readOnly}
+            />
+          </div>
+
+          {isEdit && !readOnly && draft.account_id && (
+            <button
+              type="button"
+              onClick={() => onLogFcr(draft)}
+              className="flex items-center gap-1.5 text-xs font-medium text-primary-600 hover:underline"
+            >
+              <ClipboardCheck size={13} /> Log FCR for this visit
+            </button>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-t border-gray-100">
+          {isEdit && !readOnly ? (
+            <button
+              onClick={onDelete}
+              className="flex items-center gap-1.5 text-sm font-medium text-red-600 hover:bg-red-50 px-3 py-2 rounded-lg transition-colors"
+            >
+              <Trash2 size={14} /> Delete
+            </button>
+          ) : <span />}
+          <div className="flex items-center gap-2">
+            {readOnly ? (
+              <button onClick={onClose} className="btn-secondary text-sm">Close</button>
+            ) : (
+              <>
+                <button onClick={onClose} className="btn-secondary text-sm">Cancel</button>
+                <button onClick={onSubmit} className="btn-primary flex items-center gap-2 text-sm">
+                  <Send size={14} /> Submit
+                </button>
+              </>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   )
