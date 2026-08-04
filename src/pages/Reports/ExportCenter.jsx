@@ -207,9 +207,9 @@ export const ExportCenter = () => {
             <p className="text-2xl font-bold text-emerald-700">{loading ? '-' : fcrs.length}</p>
             <p className="text-xs text-emerald-700 mt-0.5">Acknowledged FCRs</p>
           </div>
-          <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
-            <p className="text-2xl font-bold text-purple-700">{loading ? '-' : mcpEntries.length}</p>
-            <p className="text-xs text-purple-700 mt-0.5">MCP (Actual) Entries</p>
+          <div className="p-3 bg-primary-50 border border-primary-200 rounded-lg">
+            <p className="text-2xl font-bold text-primary-700">{loading ? '-' : mcpEntries.length}</p>
+            <p className="text-xs text-primary-700 mt-0.5">MCP (Actual) Entries</p>
           </div>
         </div>
 
