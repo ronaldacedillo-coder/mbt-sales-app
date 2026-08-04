@@ -176,6 +176,15 @@ export const FCRForm = () => {
       delete payload.created_by
       delete payload.submitter_role
       delete payload.approver_role
+      // The Visit Date is no longer something the rep can freely type in --
+      // it's locked to the date the acknowledgment request was first sent,
+      // so it can't be backdated/misrepresented. Only stamp it the first
+      // time (ack_requested_at not set yet); a later "Resend Request" must
+      // not keep shifting the date.
+      const isFirstSend = !record.ack_requested_at
+      if (isFirstSend) {
+        payload.visit_date = format(new Date(), 'yyyy-MM-dd')
+      }
       const { error: saveError } = await supabase.from('fcrs').update(payload).eq('id', id)
       if (saveError) throw saveError
 
@@ -200,7 +209,12 @@ export const FCRForm = () => {
         throw new Error(message)
       }
       if (!data?.ok) throw new Error(data?.error || 'Failed to send the acknowledgment email')
-      setRecord(prev => ({ ...prev, ack_status: 'pending', ack_requested_at: new Date().toISOString() }))
+      setRecord(prev => ({
+        ...prev,
+        ack_status: 'pending',
+        ack_requested_at: new Date().toISOString(),
+        ...(isFirstSend ? { visit_date: payload.visit_date } : {}),
+      }))
     } catch (err) {
       setError(err.message || 'Failed to send the acknowledgment request')
     } finally {

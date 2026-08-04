@@ -241,7 +241,17 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
             <Field label="ASE / TSE" value={customerInfo.ase_tse} readOnly onChange={() => {}} />
             <Field label="Visit Freq / Days" value={customerInfo.visit_freq_days} readOnly onChange={() => {}} />
             <Field label="Trade Terms" value={selectedAccount ? TRADE_TERMS_LABELS[selectedAccount.trade_terms] : ''} readOnly onChange={() => {}} />
-            <Field label="Visit Date" type="date" value={record.visit_date} readOnly={readOnly} onChange={(v) => set({ visit_date: v })} />
+            {/* Locked the moment the acknowledgment request is first sent --
+                the visit/filing date is now the date that send happened
+                (see handleSendAcknowledgment in FCRForm.jsx), not something
+                the rep can freely type in or backdate afterward. */}
+            <div>
+              <Field label="Visit Date" type="date" value={record.visit_date}
+                readOnly={readOnly || Boolean(record.ack_requested_at)} onChange={(v) => set({ visit_date: v })} />
+              {!readOnly && record.ack_requested_at && (
+                <p className="text-xs text-gray-400 mt-1">Locked to the date the acknowledgment request was sent.</p>
+              )}
+            </div>
             <div>
               <label className="label">AM / PM</label>
               {readOnly ? (
