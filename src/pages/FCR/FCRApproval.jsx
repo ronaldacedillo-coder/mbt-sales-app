@@ -87,7 +87,17 @@ export const FCRApproval = () => {
     }
   }
 
-  const handleApprove = async (id) => {
+  const handleApprove = async (id, ackStatus) => {
+    // Belt-and-suspenders: the Approve button is already disabled unless the
+    // account has acknowledged the meeting minutes, but that only guards the
+    // click itself -- re-check here against the value this row was fetched
+    // with, in case it's stale. The database's own WITH CHECK is the real
+    // backstop (see the fcrs_update_approver policy), this just avoids a
+    // round trip to the server for the common case.
+    if (ackStatus !== 'acknowledged') {
+      alert('This FCR can\'t be approved yet -- the account hasn\'t acknowledged the meeting minutes.')
+      return
+    }
     setProcessing(id)
     try {
       const { error } = await supabase
@@ -264,23 +274,32 @@ export const FCRApproval = () => {
                   those are still the NSM's call to make. */}
               {item.status === 'pending_approval' && (
                 canApproveFCR(role, item.submitter_role) ? (
-                  <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-center justify-end gap-3">
-                    <button
-                      onClick={() => handleReject(item.id)}
-                      disabled={processing === item.id}
-                      className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center gap-2 disabled:opacity-50"
-                    >
-                      <XCircle size={16} />
-                      Reject
-                    </button>
-                    <button
-                      onClick={() => handleApprove(item.id)}
-                      disabled={processing === item.id}
-                      className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50"
-                    >
-                      <CheckCircle2 size={16} />
-                      {processing === item.id ? 'Processing...' : 'Approve'}
-                    </button>
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    {item.ack_status !== 'acknowledged' && (
+                      <p className="text-xs text-amber-600 mb-3 flex items-center gap-1.5">
+                        <Clock size={12} />
+                        Waiting on the account to acknowledge the meeting minutes -- this can't be approved yet.
+                      </p>
+                    )}
+                    <div className="flex flex-wrap items-center justify-end gap-3">
+                      <button
+                        onClick={() => handleReject(item.id)}
+                        disabled={processing === item.id}
+                        className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center gap-2 disabled:opacity-50"
+                      >
+                        <XCircle size={16} />
+                        Reject
+                      </button>
+                      <button
+                        onClick={() => handleApprove(item.id, item.ack_status)}
+                        disabled={processing === item.id || item.ack_status !== 'acknowledged'}
+                        title={item.ack_status === 'acknowledged' ? '' : 'The account must acknowledge the meeting minutes before this FCR can be approved'}
+                        className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <CheckCircle2 size={16} />
+                        {processing === item.id ? 'Processing...' : 'Approve'}
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <p className="mt-4 pt-4 border-t border-gray-200 text-xs text-gray-400">
