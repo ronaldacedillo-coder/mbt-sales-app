@@ -21,6 +21,9 @@ export const AcknowledgeFCR = () => {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [justAcknowledged, setJustAcknowledged] = useState(false)
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => { setMounted(true) }, [])
 
   useEffect(() => {
     const load = async () => {
@@ -76,7 +79,9 @@ export const AcknowledgeFCR = () => {
   if (notFound) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-md w-full bg-white rounded-xl border border-gray-200 p-8 text-center">
+        <div
+          className={`max-w-md w-full bg-white rounded-xl border border-gray-200 shadow-[0_20px_60px_-15px_rgba(37,99,235,0.15)] p-8 text-center transition-all duration-200 ease-out-strong ${mounted ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
+        >
           <AlertCircle size={40} className="mx-auto text-gray-300 mb-4" />
           <h1 className="text-lg font-semibold text-gray-900">Link not found</h1>
           <p className="text-sm text-gray-500 mt-2">This acknowledgment link is invalid or has expired. Please contact the MBT representative who sent it to you.</p>
@@ -109,7 +114,9 @@ export const AcknowledgeFCR = () => {
           <span className="text-lg font-bold text-gray-900">MBT Sales -- Meeting Minutes Acknowledgment</span>
         </div>
 
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+        <div
+          className={`bg-white rounded-xl border border-gray-200 shadow-[0_20px_60px_-15px_rgba(37,99,235,0.15)] p-6 space-y-5 transition-all duration-200 ease-out-strong ${mounted ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
+        >
           <div>
             <h1 className="text-lg font-semibold text-gray-900">
               {details.customer_info?.company_name || 'Meeting Minutes'}

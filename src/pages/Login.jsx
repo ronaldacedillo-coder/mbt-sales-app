@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { FileText, Eye, EyeOff, AlertCircle } from 'lucide-react'
@@ -9,8 +9,11 @@ export const Login = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [mounted, setMounted] = useState(false)
   const { signIn } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => { setMounted(true) }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -30,7 +33,9 @@ export const Login = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div
+          className={`bg-white rounded-xl shadow-[0_20px_60px_-15px_rgba(37,99,235,0.25)] p-8 transition-all duration-200 ease-out-strong ${mounted ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
+        >
           <div className="text-center mb-8">
             <div className="w-16 h-16 bg-primary-600 rounded-xl flex items-center justify-center mx-auto mb-4">
               <FileText size={32} className="text-white" />
