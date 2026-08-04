@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ROLES, canCreateAccount } from '../../utils/roles'
 import { CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS } from '../../utils/accounts'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import {
   Plus,
   Building2,
@@ -22,6 +24,7 @@ export const AccountList = () => {
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [filterPriority, setFilterPriority] = useState('all')
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   useEffect(() => {
     fetchAccounts()
@@ -51,17 +54,20 @@ export const AccountList = () => {
   // RLS policy (which also allows NSM and the account's own creator, but the
   // UI only surfaces this button for the Head to keep it as a deliberate,
   // top-level cleanup action rather than something reps do day-to-day).
-  const handleDelete = async (e, id) => {
+  const openDeleteDialog = (e, id) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!confirm('Delete this account? This cannot be undone.')) return
+    setDeleteTarget(id)
+  }
+
+  const handleDelete = async (id) => {
     try {
       const { error } = await supabase.from('accounts').delete().eq('id', id)
       if (error) throw error
       setAccounts(prev => prev.filter(a => a.id !== id))
     } catch (error) {
       console.error('Error deleting account:', error)
-      alert('Failed to delete account')
+      toast.error('Failed to delete account')
     }
   }
 
@@ -193,7 +199,7 @@ export const AccountList = () => {
                         </span>
                         {role === ROLES.COMMERCIAL_AC_HEAD && (
                           <button
-                            onClick={(e) => handleDelete(e, account.id)}
+                            onClick={(e) => openDeleteDialog(e, account.id)}
                             className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Delete account"
                           >
@@ -253,6 +259,15 @@ export const AccountList = () => {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(isOpen) => !isOpen && setDeleteTarget(null)}
+        title="Delete this account?"
+        description="This cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={() => handleDelete(deleteTarget)}
+      />
     </div>
   )
 }

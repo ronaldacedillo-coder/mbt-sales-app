@@ -6,6 +6,7 @@ import { accountsFromSnapshot } from '../../lib/mcpActual'
 import { downloadMCPPdf } from '../../lib/mcpPdf'
 import { format, parseISO } from 'date-fns'
 import { Archive, FileText, Trash2, ArrowLeft } from 'lucide-react'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 
 // A permanent record of every MCP (Actual) ever generated -- each row is a
 // snapshot taken at export time, so it stays accurate even if the
@@ -17,6 +18,7 @@ export const MCPArchive = () => {
   const [downloadingId, setDownloadingId] = useState(null)
   const [deletingId, setDeletingId] = useState(null)
   const [error, setError] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   useEffect(() => {
     fetchEntries()
@@ -65,7 +67,6 @@ export const MCPArchive = () => {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this archived MCP (Actual)? This cannot be undone.')) return
     setDeletingId(id)
     try {
       const { error } = await supabase.from('mcp_archive').delete().eq('id', id)
@@ -131,7 +132,7 @@ export const MCPArchive = () => {
                 </button>
                 {entry.generated_by === user?.id && (
                   <button
-                    onClick={() => handleDelete(entry.id)}
+                    onClick={() => setDeleteTarget(entry.id)}
                     disabled={deletingId === entry.id}
                     className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
                   >
@@ -143,6 +144,15 @@ export const MCPArchive = () => {
           ))}
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(isOpen) => !isOpen && setDeleteTarget(null)}
+        title="Delete this archived MCP (Actual)?"
+        description="This cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={() => handleDelete(deleteTarget)}
+      />
     </div>
   )
 }

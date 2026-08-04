@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ROLES, canApproveItinerary } from '../../utils/roles'
+import { PromptDialog } from '../../components/PromptDialog'
 import {
   CheckCircle2,
   XCircle,
@@ -31,6 +33,8 @@ export const ItineraryApproval = () => {
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState(null)
   const [processing, setProcessing] = useState(null)
+  const [removingId, setRemovingId] = useState(null)
+  const [rejectTarget, setRejectTarget] = useState(null)
   // Approving/rejecting an item here used to make it vanish from this page
   // for good -- there was no way back to it short of hunting for it in
   // ItineraryList. Defaulting to 'pending_approval' keeps the primary
@@ -103,18 +107,19 @@ export const ItineraryApproval = () => {
         })
         .eq('id', id)
       if (error) throw error
+      setRemovingId(id)
+      await new Promise((resolve) => setTimeout(resolve, 200))
       fetchItineraries()
     } catch (error) {
       console.error('Error approving:', error)
-      alert('Failed to approve itinerary')
+      toast.error('Failed to approve itinerary')
     } finally {
       setProcessing(null)
+      setRemovingId(null)
     }
   }
 
-  const handleReject = async (id) => {
-    const reason = prompt('Enter rejection reason:')
-    if (!reason) return
+  const handleReject = async (id, reason) => {
     setProcessing(id)
     try {
       const { error } = await supabase
@@ -127,12 +132,15 @@ export const ItineraryApproval = () => {
         })
         .eq('id', id)
       if (error) throw error
+      setRemovingId(id)
+      await new Promise((resolve) => setTimeout(resolve, 200))
       fetchItineraries()
     } catch (error) {
       console.error('Error rejecting:', error)
-      alert('Failed to reject itinerary')
+      toast.error('Failed to reject itinerary')
     } finally {
       setProcessing(null)
+      setRemovingId(null)
     }
   }
 
@@ -202,7 +210,12 @@ export const ItineraryApproval = () => {
       ) : (
         <div className="space-y-4">
           {itineraries.map((item) => (
-            <div key={item.id} className="card">
+            <div
+              key={item.id}
+              className={`card transition-all duration-200 ease-out-strong ${
+                removingId === item.id ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'
+              }`}
+            >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
@@ -299,12 +312,12 @@ export const ItineraryApproval = () => {
                 canApproveItinerary(role, item.submitter_role) ? (
                   <div className="mt-4 pt-4 border-t border-gray-200 flex flex-wrap items-center justify-end gap-3">
                     <button
-                      onClick={() => handleReject(item.id)}
+                      onClick={() => setRejectTarget(item.id)}
                       disabled={processing === item.id}
                       className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center gap-2 disabled:opacity-50"
                     >
                       <XCircle size={16} />
-                      Reject
+                      {processing === item.id ? 'Rejecting...' : 'Reject'}
                     </button>
                     <button
                       onClick={() => handleApprove(item.id)}
@@ -325,6 +338,16 @@ export const ItineraryApproval = () => {
           ))}
         </div>
       )}
+
+      <PromptDialog
+        open={rejectTarget !== null}
+        onOpenChange={(isOpen) => !isOpen && setRejectTarget(null)}
+        title="Reject MCP (Plan)"
+        label="Rejection reason"
+        placeholder="Explain why this plan is being rejected"
+        confirmLabel="Reject"
+        onSubmit={(reason) => handleReject(rejectTarget, reason)}
+      />
     </div>
   )
 }

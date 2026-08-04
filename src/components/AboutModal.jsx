@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { RonAppsLogo } from './RonAppsLogo'
 
 // "About RonApps" panel -- matches the standard About template used across
@@ -5,9 +6,12 @@ import { RonAppsLogo } from './RonAppsLogo'
 // founder note), with only the "including this ___" line adapted to name
 // this specific app.
 export const AboutModal = ({ onClose }) => {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
+
   return (
     <div
-      className="fixed inset-0 bg-gray-900/40 z-50 flex items-center justify-center p-4"
+      className={`fixed inset-0 bg-gray-900/40 z-50 flex items-center justify-center p-4 transition-opacity duration-200 ease-out-strong ${mounted ? 'opacity-100' : 'opacity-0'}`}
       onClick={onClose}
       aria-hidden="true"
     >
@@ -15,7 +19,7 @@ export const AboutModal = ({ onClose }) => {
         role="dialog"
         aria-modal="true"
         aria-label="About RonApps"
-        className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden"
+        className={`bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden transition-all duration-200 ease-out-strong ${mounted ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="bg-[#1E2761] px-6 py-5">

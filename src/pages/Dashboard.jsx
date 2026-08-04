@@ -558,7 +558,7 @@ const QuickActionCard = ({ icon: Icon, label, description, link, color }) => {
   return (
     <Link 
       to={link}
-      className={`flex items-center gap-3 p-4 border border-gray-200 rounded-xl transition-all ${colors[color]}`}
+      className={`flex items-center gap-3 p-4 border border-gray-200 rounded-xl transition-colors ${colors[color]}`}
     >
       <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
         <Icon size={20} className="text-gray-600" />

@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import { Pencil } from 'lucide-react'
 import { EditableTable } from '../../components/EditableTable'
 import { monthKeys, monthLabels, PROJECT_REP_LABEL } from './fcrTemplates'
@@ -119,7 +120,7 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
       } else if (isSpecIn(p.specin)) {
         targetKey = 'primary'
       } else {
-        alert(`"${p.name}" isn't at Bidding status and isn't flagged Spec-in in Pipeline, so it doesn't clearly belong in either Qualified / Identified or SPEC-IN. Add it to the table manually below if you still want it on this FCR.`)
+        toast.error(`"${p.name}" isn't at Bidding status and isn't flagged Spec-in in Pipeline, so it doesn't clearly belong in either Qualified / Identified or SPEC-IN. Add it to the table manually below if you still want it on this FCR.`)
         return
       }
     } else {
@@ -135,7 +136,7 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
       } else if (isFinalNegotiation(p.status)) {
         targetKey = 'primary'
       } else {
-        alert(`"${p.name}" is at "${p.status || 'an unspecified'}" status in Pipeline, which isn't Bidding or Final Negotiation, so it doesn't clearly belong in either Qualified / Identified or Under Negotiation. Add it to the table manually below if you still want it on this FCR.`)
+        toast.error(`"${p.name}" is at "${p.status || 'an unspecified'}" status in Pipeline, which isn't Bidding or Final Negotiation, so it doesn't clearly belong in either Qualified / Identified or Under Negotiation. Add it to the table manually below if you still want it on this FCR.`)
         return
       }
     }

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ROLES, canApproveFCR } from '../../utils/roles'
 import { FCRFormBody } from './FCRFormBody'
 import { emptyCustomerInfo, emptyFormData } from './fcrTemplates'
+import { PromptDialog } from '../../components/PromptDialog'
 import {
   CheckCircle2,
   XCircle,
@@ -30,6 +32,8 @@ export const FCRApproval = () => {
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState(null)
   const [processing, setProcessing] = useState(null)
+  const [removingId, setRemovingId] = useState(null)
+  const [rejectTarget, setRejectTarget] = useState(null)
   // Approving/rejecting used to make the FCR vanish from this page for
   // good, so an approver could never pull it back up to confirm what they'd
   // signed off on. Defaulting to 'pending_approval' keeps the everyday
@@ -95,7 +99,7 @@ export const FCRApproval = () => {
     // backstop (see the fcrs_update_approver policy), this just avoids a
     // round trip to the server for the common case.
     if (ackStatus !== 'acknowledged') {
-      alert('This FCR can\'t be approved yet -- the account hasn\'t acknowledged the meeting minutes.')
+      toast.error('This FCR can\'t be approved yet -- the account hasn\'t acknowledged the meeting minutes.')
       return
     }
     setProcessing(id)
@@ -109,18 +113,19 @@ export const FCRApproval = () => {
         })
         .eq('id', id)
       if (error) throw error
+      setRemovingId(id)
+      await new Promise((resolve) => setTimeout(resolve, 200))
       fetchFCRs()
     } catch (error) {
       console.error('Error approving FCR:', error)
-      alert('Failed to approve FCR')
+      toast.error('Failed to approve FCR')
     } finally {
       setProcessing(null)
+      setRemovingId(null)
     }
   }
 
-  const handleReject = async (id) => {
-    const reason = prompt('Enter rejection reason:')
-    if (!reason) return
+  const handleReject = async (id, reason) => {
     setProcessing(id)
     try {
       const { error } = await supabase
@@ -133,12 +138,15 @@ export const FCRApproval = () => {
         })
         .eq('id', id)
       if (error) throw error
+      setRemovingId(id)
+      await new Promise((resolve) => setTimeout(resolve, 200))
       fetchFCRs()
     } catch (error) {
       console.error('Error rejecting FCR:', error)
-      alert('Failed to reject FCR')
+      toast.error('Failed to reject FCR')
     } finally {
       setProcessing(null)
+      setRemovingId(null)
     }
   }
 
@@ -208,7 +216,12 @@ export const FCRApproval = () => {
       ) : (
         <div className="space-y-4">
           {fcrs.map((item) => (
-            <div key={item.id} className="card">
+            <div
+              key={item.id}
+              className={`card transition-all duration-200 ease-out-strong ${
+                removingId === item.id ? 'opacity-0 scale-95 pointer-events-none' : 'opacity-100 scale-100'
+              }`}
+            >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
@@ -283,12 +296,12 @@ export const FCRApproval = () => {
                     )}
                     <div className="flex flex-wrap items-center justify-end gap-3">
                       <button
-                        onClick={() => handleReject(item.id)}
+                        onClick={() => setRejectTarget(item.id)}
                         disabled={processing === item.id}
                         className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg text-sm font-medium hover:bg-red-100 transition-colors flex items-center gap-2 disabled:opacity-50"
                       >
                         <XCircle size={16} />
-                        Reject
+                        {processing === item.id ? 'Rejecting...' : 'Reject'}
                       </button>
                       <button
                         onClick={() => handleApprove(item.id, item.ack_status)}
@@ -311,6 +324,16 @@ export const FCRApproval = () => {
           ))}
         </div>
       )}
+
+      <PromptDialog
+        open={rejectTarget !== null}
+        onOpenChange={(isOpen) => !isOpen && setRejectTarget(null)}
+        title="Reject FCR"
+        label="Rejection reason"
+        placeholder="Explain why this FCR is being rejected"
+        confirmLabel="Reject"
+        onSubmit={(reason) => handleReject(rejectTarget, reason)}
+      />
     </div>
   )
 }

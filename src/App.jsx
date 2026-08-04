@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { Toaster } from 'sonner'
 import { useAuth } from './context/AuthContext'
 import { ProtectedRoute } from './components/ProtectedRoute'
 import { Layout } from './components/Layout'
@@ -32,7 +33,9 @@ function App() {
   }
 
   return (
-    <Routes>
+    <>
+      <Toaster position="top-right" richColors closeButton />
+      <Routes>
       <Route path="/login" element={!user ? <Login /> : <Navigate to="/dashboard" replace />} />
 
       {/* Public -- no login. Reached only via the link a Sales/BD rep emails
@@ -97,7 +100,8 @@ function App() {
 
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
       </Route>
-    </Routes>
+      </Routes>
+    </>
   )
 }
 

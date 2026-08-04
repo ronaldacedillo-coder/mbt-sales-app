@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ROLES, canApproveFCR, canCreateFCR } from '../../utils/roles'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { PromptDialog } from '../../components/PromptDialog'
 import {
   Plus,
   ClipboardCheck,
@@ -23,6 +26,8 @@ export const FCRList = () => {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
+  const [rejectTarget, setRejectTarget] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   useEffect(() => {
     fetchFCRs()
@@ -69,13 +74,11 @@ export const FCRList = () => {
       fetchFCRs()
     } catch (error) {
       console.error('Error approving FCR:', error)
-      alert('Failed to approve FCR')
+      toast.error('Failed to approve FCR')
     }
   }
 
-  const handleReject = async (id) => {
-    const reason = prompt('Enter rejection reason:')
-    if (!reason) return
+  const handleReject = async (id, reason) => {
     try {
       const { error } = await supabase
         .from('fcrs')
@@ -85,7 +88,7 @@ export const FCRList = () => {
       fetchFCRs()
     } catch (error) {
       console.error('Error rejecting FCR:', error)
-      alert('Failed to reject FCR')
+      toast.error('Failed to reject FCR')
     }
   }
 
@@ -96,14 +99,13 @@ export const FCRList = () => {
   // check. Handy for clearing out test/demo/duplicate entries without a
   // database console.
   const handleDelete = async (id) => {
-    if (!confirm('Delete this FCR? This cannot be undone.')) return
     try {
       const { error } = await supabase.from('fcrs').delete().eq('id', id)
       if (error) throw error
       fetchFCRs()
     } catch (error) {
       console.error('Error deleting FCR:', error)
-      alert('Failed to delete FCR')
+      toast.error('Failed to delete FCR')
     }
   }
 
@@ -266,7 +268,7 @@ export const FCRList = () => {
                         Approve
                       </button>
                       <button
-                        onClick={() => handleReject(item.id)}
+                        onClick={() => setRejectTarget(item.id)}
                         className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors flex items-center gap-1.5"
                       >
                         <XCircle size={14} />
@@ -276,7 +278,7 @@ export const FCRList = () => {
                   )}
                   {role === ROLES.COMMERCIAL_AC_HEAD && item.submitter_role === ROLES.BD_ENGINEER && (
                     <button
-                      onClick={() => handleDelete(item.id)}
+                      onClick={() => setDeleteTarget(item.id)}
                       className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Delete FCR"
                     >
@@ -295,6 +297,24 @@ export const FCRList = () => {
           ))}
         </div>
       )}
+
+      <PromptDialog
+        open={rejectTarget !== null}
+        onOpenChange={(isOpen) => !isOpen && setRejectTarget(null)}
+        title="Reject FCR"
+        label="Rejection reason"
+        placeholder="Explain why this FCR is being rejected"
+        confirmLabel="Reject"
+        onSubmit={(reason) => handleReject(rejectTarget, reason)}
+      />
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(isOpen) => !isOpen && setDeleteTarget(null)}
+        title="Delete this FCR?"
+        description="This cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={() => handleDelete(deleteTarget)}
+      />
     </div>
   )
 }

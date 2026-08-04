@@ -28,7 +28,14 @@ export default {
           approved: '#10b981',
           rejected: '#ef4444',
         }
-      }
+      },
+      transitionTimingFunction: {
+        'out-strong': 'cubic-bezier(0.23, 1, 0.32, 1)',      // strong ease-out, for entrances/exits
+        'in-out-strong': 'cubic-bezier(0.77, 0, 0.175, 1)',  // strong ease-in-out, for on-screen movement (e.g. sidebar slide)
+      },
+      transitionDuration: {
+        '160': '160ms', // press feedback
+      },
     },
   },
   plugins: [],

@@ -89,17 +89,20 @@ export const Sidebar = ({ isOpen = false, onClose = () => {} }) => {
 
   return (
     <>
-      {/* Backdrop -- mobile/tablet only, closes the drawer on tap */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-gray-900/40 z-30 lg:hidden print:hidden"
-          onClick={onClose}
-          aria-hidden="true"
-        />
-      )}
+      {/* Backdrop -- mobile/tablet only, closes the drawer on tap.
+          Always rendered (rather than conditionally mounted) so opacity can
+          transition in sync with the drawer's slide; pointer-events toggles
+          so the invisible backdrop doesn't block clicks when closed. */}
+      <div
+        className={`fixed inset-0 bg-gray-900/40 z-30 lg:hidden print:hidden transition-opacity duration-200 ease-in-out-strong ${
+          isOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+        }`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
 
       <aside
-        className={`w-64 bg-white border-r border-gray-200 fixed h-full flex flex-col z-40 print:hidden transition-transform duration-200 ease-in-out ${
+        className={`w-64 bg-white border-r border-gray-200 fixed h-full flex flex-col z-40 print:hidden transition-transform duration-200 ease-in-out-strong ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         } lg:translate-x-0`}
       >

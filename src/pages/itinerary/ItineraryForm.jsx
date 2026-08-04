@@ -556,10 +556,12 @@ export const ItineraryForm = () => {
 const VisitEntryModal = ({ modalVisit, accounts, readOnly, onFieldChange, onSubmit, onDelete, onClose, onLogFcr }) => {
   const { mode, draft } = modalVisit
   const isEdit = mode === 'edit'
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
 
   return (
     <div
-      className="fixed inset-0 bg-gray-900/40 z-50 flex items-center justify-center p-4"
+      className={`fixed inset-0 bg-gray-900/40 z-50 flex items-center justify-center p-4 transition-opacity duration-200 ease-out-strong ${mounted ? 'opacity-100' : 'opacity-0'}`}
       onClick={onClose}
       aria-hidden="true"
     >
@@ -567,7 +569,7 @@ const VisitEntryModal = ({ modalVisit, accounts, readOnly, onFieldChange, onSubm
         role="dialog"
         aria-modal="true"
         aria-label={isEdit ? 'Edit visit' : 'Add visit'}
-        className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden"
+        className={`bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden transition-all duration-200 ease-out-strong ${mounted ? 'opacity-100 scale-100' : 'opacity-0 scale-95'}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">

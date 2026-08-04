@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { searchPipelineProjects, pipelineProjectUrl } from '../../lib/pipeline'
 import { Search, Link2, Unlink, Loader2, AlertCircle, Import, ExternalLink } from 'lucide-react'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 
 const money = (n) => (n || n === 0) ? `PHP ${Number(n).toLocaleString()}` : ''
 
@@ -30,6 +31,7 @@ export const PipelineProjectsPanel = ({ accountId, companyName, canEdit = false,
   const [searching, setSearching] = useState(false)
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState(null)
+  const [unlinkTarget, setUnlinkTarget] = useState(null)
 
   useEffect(() => {
     if (accountId) fetchLinked()
@@ -86,7 +88,6 @@ export const PipelineProjectsPanel = ({ accountId, companyName, canEdit = false,
   }
 
   const unlinkProject = async (linkId) => {
-    if (!confirm('Remove this linked Pipeline project?')) return
     setBusyId(linkId)
     try {
       const { error } = await supabase.from('accounts_pipeline_links').delete().eq('id', linkId)
@@ -222,7 +223,7 @@ export const PipelineProjectsPanel = ({ accountId, companyName, canEdit = false,
                     )}
                     {canEdit && (
                       <button
-                        onClick={() => unlinkProject(link.id)}
+                        onClick={() => setUnlinkTarget(link.id)}
                         disabled={busyId === link.id}
                         className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="Unlink"
@@ -247,6 +248,14 @@ export const PipelineProjectsPanel = ({ accountId, companyName, canEdit = false,
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={unlinkTarget !== null}
+        onOpenChange={(isOpen) => !isOpen && setUnlinkTarget(null)}
+        title="Remove this linked Pipeline project?"
+        confirmLabel="Remove"
+        onConfirm={() => unlinkProject(unlinkTarget)}
+      />
     </div>
   )
 }

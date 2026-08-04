@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ROLES, canApproveItinerary } from '../../utils/roles'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { PromptDialog } from '../../components/PromptDialog'
 import {
   Plus,
   Calendar,
@@ -22,6 +25,8 @@ export const ItineraryList = () => {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
+  const [rejectTarget, setRejectTarget] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
 
   useEffect(() => {
     fetchItineraries()
@@ -67,13 +72,11 @@ export const ItineraryList = () => {
       fetchItineraries()
     } catch (error) {
       console.error('Error approving itinerary:', error)
-      alert('Failed to approve itinerary')
+      toast.error('Failed to approve itinerary')
     }
   }
 
-  const handleReject = async (id) => {
-    const reason = prompt('Enter rejection reason:')
-    if (!reason) return
+  const handleReject = async (id, reason) => {
     try {
       const { error } = await supabase
         .from('itineraries')
@@ -83,7 +86,7 @@ export const ItineraryList = () => {
       fetchItineraries()
     } catch (error) {
       console.error('Error rejecting itinerary:', error)
-      alert('Failed to reject itinerary')
+      toast.error('Failed to reject itinerary')
     }
   }
 
@@ -94,14 +97,13 @@ export const ItineraryList = () => {
   // as the role check. Handy for clearing out test/demo/duplicate entries
   // without a database console.
   const handleDelete = async (id) => {
-    if (!confirm('Delete this MCP (Plan)? This cannot be undone.')) return
     try {
       const { error } = await supabase.from('itineraries').delete().eq('id', id)
       if (error) throw error
       fetchItineraries()
     } catch (error) {
       console.error('Error deleting itinerary:', error)
-      alert('Failed to delete MCP (Plan)')
+      toast.error('Failed to delete MCP (Plan)')
     }
   }
 
@@ -256,7 +258,7 @@ export const ItineraryList = () => {
                         Approve
                       </button>
                       <button
-                        onClick={() => handleReject(item.id)}
+                        onClick={() => setRejectTarget(item.id)}
                         className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors flex items-center gap-1.5"
                       >
                         <XCircle size={14} />
@@ -266,7 +268,7 @@ export const ItineraryList = () => {
                   )}
                   {role === ROLES.COMMERCIAL_AC_HEAD && item.submitter_role !== ROLES.SALES_ENGINEER && (
                     <button
-                      onClick={() => handleDelete(item.id)}
+                      onClick={() => setDeleteTarget(item.id)}
                       className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Delete MCP (Plan)"
                     >
@@ -285,6 +287,24 @@ export const ItineraryList = () => {
           ))}
         </div>
       )}
+
+      <PromptDialog
+        open={rejectTarget !== null}
+        onOpenChange={(isOpen) => !isOpen && setRejectTarget(null)}
+        title="Reject MCP (Plan)"
+        label="Rejection reason"
+        placeholder="Explain why this plan is being rejected"
+        confirmLabel="Reject"
+        onSubmit={(reason) => handleReject(rejectTarget, reason)}
+      />
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onOpenChange={(isOpen) => !isOpen && setDeleteTarget(null)}
+        title="Delete this MCP (Plan)?"
+        description="This cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={() => handleDelete(deleteTarget)}
+      />
     </div>
   )
 }
