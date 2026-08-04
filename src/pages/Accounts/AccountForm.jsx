@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { TRADE_TERMS, TRADE_TERMS_LABELS, DISTRIBUTOR_OPTIONS, CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS } from '../../utils/accounts'
@@ -126,7 +127,7 @@ export const AccountForm = () => {
   })
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
   const [generatingRecommendation, setGeneratingRecommendation] = useState(false)
   const [possibleDuplicates, setPossibleDuplicates] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
@@ -175,7 +176,7 @@ export const AccountForm = () => {
       if (error) throw error
       if (data) setFormData(data)
     } catch (err) {
-      setError('Failed to load account')
+      toast.error('Failed to load account')
     } finally {
       setLoading(false)
     }
@@ -202,7 +203,7 @@ export const AccountForm = () => {
 
   const generateRecommendation = () => {
     if (!formData.customer_type) {
-      setError('Please select a Customer Type first')
+      setFieldErrors({ customer_type: 'Select a Customer Type first' })
       return
     }
 
@@ -223,14 +224,14 @@ export const AccountForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError('')
+    setFieldErrors({})
 
     if (!formData.trade_terms) {
-      setError('Please select Trade Terms below -- an account can\'t be saved without it, since Itinerary and FCR only let reps pick from fully profiled accounts.')
+      setFieldErrors({ trade_terms: 'Select Trade Terms below -- an account can\'t be saved without it, since Itinerary and FCR only let reps pick from fully profiled accounts.' })
       return
     }
     if (formData.trade_terms === TRADE_TERMS.DISTRIBUTOR && !formData.distributor_name?.trim()) {
-      setError('Please specify which MBT Distributor this account transacts through.')
+      setFieldErrors({ distributor_name: 'Specify which MBT Distributor this account transacts through.' })
       return
     }
 
@@ -256,7 +257,7 @@ export const AccountForm = () => {
         navigate('/accounts')
       }
     } catch (err) {
-      setError(err.message || 'Failed to save account')
+      toast.error(err.message || 'Failed to save account')
     } finally {
       setSaving(false)
     }
@@ -288,13 +289,6 @@ export const AccountForm = () => {
           </p>
         </div>
       </div>
-
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
-          <AlertCircle size={18} />
-          {error}
-        </div>
-      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Company Information */}
@@ -350,6 +344,11 @@ export const AccountForm = () => {
                   <option key={ct.value} value={ct.value}>{ct.label}</option>
                 ))}
               </select>
+              {fieldErrors.customer_type && (
+                <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle size={12} />{fieldErrors.customer_type}
+                </p>
+              )}
             </div>
 
             <div>
@@ -425,6 +424,11 @@ export const AccountForm = () => {
               </button>
             ))}
           </div>
+          {fieldErrors.trade_terms && (
+            <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+              <AlertCircle size={12} />{fieldErrors.trade_terms}
+            </p>
+          )}
 
           {formData.trade_terms === TRADE_TERMS.DISTRIBUTOR && (
             <div className="mt-4">
@@ -448,6 +452,11 @@ export const AccountForm = () => {
                   className="input"
                   placeholder="Distributor name"
                 />
+              )}
+              {fieldErrors.distributor_name && (
+                <p className="mt-1 text-xs text-red-600 flex items-center gap-1">
+                  <AlertCircle size={12} />{fieldErrors.distributor_name}
+                </p>
               )}
             </div>
           )}

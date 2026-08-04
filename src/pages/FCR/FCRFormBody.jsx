@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Pencil } from 'lucide-react'
+import { Pencil, AlertCircle } from 'lucide-react'
 import { EditableTable } from '../../components/EditableTable'
 import { monthKeys, monthLabels, PROJECT_REP_LABEL } from './fcrTemplates'
 import { PipelineProjectsPanel } from '../Accounts/PipelineProjectsPanel'
@@ -32,7 +32,7 @@ const SectionHeader = ({ children }) => (
   </div>
 )
 
-const Field = ({ label, value, onChange, readOnly, type = 'text' }) => (
+const Field = ({ label, value, onChange, readOnly, type = 'text', error }) => (
   <div>
     <label className="label">{label}</label>
     {readOnly ? (
@@ -42,8 +42,13 @@ const Field = ({ label, value, onChange, readOnly, type = 'text' }) => (
         type={type}
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
-        className="input"
+        className={`input ${error ? 'border-red-300 focus:ring-red-500' : ''}`}
       />
+    )}
+    {error && (
+      <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+        <AlertCircle size={12} />{error}
+      </p>
     )}
   </div>
 )
@@ -54,7 +59,7 @@ const STATUS_OPTIONS = ['Not Started', 'Ongoing', 'Completed', 'N/A']
 // the official paper template, laid out differently for the MBT Sales (SE)
 // team vs. the Business Development (BD) team. Used both as the live editor
 // (FCRForm) and, with readOnly, as the reviewer's read-only view (FCRApproval).
-export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [], submitterName = '' }) => {
+export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [], submitterName = '', fieldErrors = {} }) => {
   const customerInfo = record.customer_info || {}
   const formData = record.form_data || {}
 
@@ -194,6 +199,11 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
               <option key={acc.id} value={acc.id}>{acc.company_name} ({acc.city})</option>
             ))}
           </select>
+          {fieldErrors.account_id && (
+            <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+              <AlertCircle size={12} />{fieldErrors.account_id}
+            </p>
+          )}
           {accounts.length === 0 ? (
             <p className="text-xs text-amber-600 mt-1">
               No profiled accounts yet -- <Link to="/accounts/new" className="underline">create one</Link> (with Trade Terms filled in) first.
@@ -558,6 +568,7 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
               value={record.attendee_name}
               readOnly={readOnly}
               onChange={(v) => set({ attendee_name: v })}
+              error={fieldErrors.attendee_name}
             />
             <Field
               label="Attendee Designation"
@@ -570,6 +581,7 @@ export const FCRFormBody = ({ record, onChange, teamType, readOnly, accounts = [
               type="email"
               value={record.attendee_email}
               readOnly={readOnly}
+              error={fieldErrors.attendee_email}
               onChange={(v) => set({ attendee_email: v })}
             />
           </div>

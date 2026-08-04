@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { toast } from 'sonner'
 import { useAuth } from '../../context/AuthContext'
 import { supabase } from '../../lib/supabase'
 import { ROLES, getTeamType, getApproverRole } from '../../utils/roles'
 import { emptyCustomerInfo, emptyFormData } from './fcrTemplates'
 import { FCRFormBody } from './FCRFormBody'
 import { downloadFCRPdf } from '../../lib/fcrPdf'
-import { ArrowLeft, Save, Send, AlertCircle, Lock, FileText, Mail, RefreshCw, CheckCircle2, Clock3 } from 'lucide-react'
+import { ArrowLeft, Save, Send, Lock, FileText, Mail, RefreshCw, CheckCircle2, Clock3 } from 'lucide-react'
 import { format } from 'date-fns'
 
 const blankRecord = (teamType) => ({
@@ -42,7 +43,7 @@ export const FCRForm = () => {
   const [accounts, setAccounts] = useState([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
   const [sendingAck, setSendingAck] = useState(false)
   const [checkingAck, setCheckingAck] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
@@ -84,7 +85,7 @@ export const FCRForm = () => {
         })
       }
     } catch (err) {
-      setError('Failed to load FCR')
+      toast.error('Failed to load FCR')
     } finally {
       setLoading(false)
     }
@@ -92,11 +93,11 @@ export const FCRForm = () => {
 
   const handleSave = async (status) => {
     if (!record.account_id) {
-      setError('Please select an account above -- an FCR can only be filed against a profiled account')
+      setFieldErrors({ account_id: 'Select an account above -- an FCR can only be filed against a profiled account' })
       return
     }
     setSaving(true)
-    setError('')
+    setFieldErrors({})
     try {
       const payload = { ...record, status, team_type: teamType }
       delete payload.id
@@ -123,7 +124,7 @@ export const FCRForm = () => {
       }
       navigate('/fcr')
     } catch (err) {
-      setError(err.message || 'Failed to save FCR')
+      toast.error(err.message || 'Failed to save FCR')
     } finally {
       setSaving(false)
     }
@@ -131,15 +132,18 @@ export const FCRForm = () => {
 
   const handleSubmitForApproval = () => {
     if (!record.account_id) {
-      setError('Please select an account above -- an FCR can only be filed against a profiled account')
+      setFieldErrors({ account_id: 'Select an account above -- an FCR can only be filed against a profiled account' })
       return
     }
     if (!record.attendee_name || !record.attendee_email) {
-      setError('Please fill in the meeting attendee\'s name and email before submitting -- needed to request their acknowledgment of the minutes')
+      setFieldErrors({
+        ...(!record.attendee_name ? { attendee_name: 'Required before submitting for approval' } : {}),
+        ...(!record.attendee_email ? { attendee_email: 'Required before submitting for approval' } : {}),
+      })
       return
     }
     if (record.ack_status !== 'acknowledged') {
-      setError('This FCR can\'t be submitted for approval yet -- only FCRs acknowledged by the account are sent to the NSM or Commercial AC Head. Send the acknowledgment request below first.')
+      toast.error('This FCR can\'t be submitted for approval yet -- only FCRs acknowledged by the account are sent to the NSM or Commercial AC Head. Send the acknowledgment request below first.')
       return
     }
     handleSave('pending_approval')
@@ -152,11 +156,11 @@ export const FCRForm = () => {
   // own (enforced by the fcrs table's own RLS policies).
   const handleSendAcknowledgment = async () => {
     if (!record.attendee_email) {
-      setError('Enter the attendee\'s email address first')
+      setFieldErrors({ attendee_email: 'Enter the attendee\'s email address first' })
       return
     }
     setSendingAck(true)
-    setError('')
+    setFieldErrors({})
     try {
       // The Edge Function re-reads this FCR straight from the database --
       // it doesn't see whatever's currently typed in this form. Reps who
@@ -216,7 +220,7 @@ export const FCRForm = () => {
         ...(isFirstSend ? { visit_date: payload.visit_date } : {}),
       }))
     } catch (err) {
-      setError(err.message || 'Failed to send the acknowledgment request')
+      toast.error(err.message || 'Failed to send the acknowledgment request')
     } finally {
       setSendingAck(false)
     }
@@ -239,7 +243,7 @@ export const FCRForm = () => {
       if (error) throw error
       setRecord(prev => ({ ...prev, ...data }))
     } catch (err) {
-      setError(err.message || 'Failed to refresh acknowledgment status')
+      toast.error(err.message || 'Failed to refresh acknowledgment status')
     } finally {
       setCheckingAck(false)
     }
@@ -247,13 +251,12 @@ export const FCRForm = () => {
 
   const handleExportPdf = async () => {
     setExportingPdf(true)
-    setError('')
     try {
       const account = accounts.find(a => a.id === record.account_id)
       await downloadFCRPdf({ record, account, submitterName: profile?.full_name, approverName: record.approver?.full_name })
     } catch (err) {
       console.error('Failed to export FCR PDF:', err)
-      setError('Failed to generate the PDF file')
+      toast.error('Failed to generate the PDF file')
     } finally {
       setExportingPdf(false)
     }
@@ -311,13 +314,6 @@ export const FCRForm = () => {
         </div>
       </div>
 
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm">
-          <AlertCircle size={18} />
-          {error}
-        </div>
-      )}
-
       {record.status === 'rejected' && record.rejection_reason && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
           <span className="font-medium">This FCR was rejected:</span> {record.rejection_reason}
@@ -332,6 +328,7 @@ export const FCRForm = () => {
         readOnly={readOnly}
         accounts={accounts}
         submitterName={profile?.full_name}
+        fieldErrors={fieldErrors}
       />
 
       {isEdit && (
