@@ -14,7 +14,8 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
-  Building2
+  Building2,
+  Users
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 
@@ -229,6 +230,11 @@ export const FCRApproval = () => {
                       {item.customer_info?.company_name || item.account?.company_name || 'Field Contact Report'}
                     </h3>
                     {statusBadge(item.status)}
+                    {item.joint_fcr_id && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200">
+                        <Users size={11} /> Joint Visit
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-3">

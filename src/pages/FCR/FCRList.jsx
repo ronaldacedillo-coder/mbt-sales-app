@@ -16,7 +16,8 @@ import {
   Clock,
   Building2,
   Calendar,
-  Trash2
+  Trash2,
+  Users
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 
@@ -64,7 +65,14 @@ export const FCRList = () => {
     }
   }
 
-  const handleApprove = async (id) => {
+  const handleApprove = async (id, ackStatus) => {
+    // Mirrors the check in FCRApproval.jsx -- the button below is already
+    // disabled unless acknowledged, this just guards against a stale row.
+    // The fcrs_update_approver RLS policy is the real backstop either way.
+    if (ackStatus !== 'acknowledged') {
+      toast.error('This FCR can\'t be approved yet -- the account hasn\'t acknowledged the meeting minutes.')
+      return
+    }
     try {
       const { error } = await supabase
         .from('fcrs')
@@ -229,6 +237,11 @@ export const FCRList = () => {
                         Not Yet Acknowledged
                       </span>
                     )}
+                    {item.joint_fcr_id && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200">
+                        <Users size={11} /> Joint Visit
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
@@ -261,8 +274,10 @@ export const FCRList = () => {
                   {canApprove(item) && (
                     <>
                       <button
-                        onClick={() => handleApprove(item.id)}
-                        className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-1.5"
+                        onClick={() => handleApprove(item.id, item.ack_status)}
+                        disabled={item.ack_status !== 'acknowledged'}
+                        title={item.ack_status === 'acknowledged' ? '' : 'The account must acknowledge the meeting minutes before this FCR can be approved'}
+                        className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 transition-colors flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <CheckCircle2 size={14} />
                         Approve

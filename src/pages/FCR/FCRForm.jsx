@@ -7,7 +7,7 @@ import { ROLES, getTeamType, getApproverRole } from '../../utils/roles'
 import { emptyCustomerInfo, emptyFormData } from './fcrTemplates'
 import { FCRFormBody } from './FCRFormBody'
 import { downloadFCRPdf } from '../../lib/fcrPdf'
-import { ArrowLeft, Save, Send, Lock, FileText, Mail, RefreshCw, CheckCircle2, Clock3 } from 'lucide-react'
+import { ArrowLeft, Save, Send, Lock, FileText, Mail, RefreshCw, CheckCircle2, Clock3, Users } from 'lucide-react'
 import { format } from 'date-fns'
 
 const blankRecord = (teamType) => ({
@@ -47,11 +47,67 @@ export const FCRForm = () => {
   const [sendingAck, setSendingAck] = useState(false)
   const [checkingAck, setCheckingAck] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [jointInfo, setJointInfo] = useState(null)
+  const [jointCandidates, setJointCandidates] = useState([])
+  const [linkingJointId, setLinkingJointId] = useState(null)
 
   useEffect(() => {
     fetchAccounts()
     if (isEdit) fetchFCR()
   }, [id])
+
+  // Two reps (e.g. an SE and a BD rep) visiting the same account together
+  // each file their own FCR -- this surfaces that connection: once linked
+  // (see fcr_link_joint_visit / fcr_set_joint_link), show who the other
+  // rep is and their acknowledgment status; before that, offer to link to
+  // any other FCR already filed for this same account on this same date.
+  // Only meaningful once the FCR has an id (fcr_set_joint_link needs one
+  // to authorize against), so this sits out entirely for a new, unsaved FCR.
+  useEffect(() => {
+    if (!isEdit || !record.account_id || !record.visit_date) {
+      setJointInfo(null)
+      setJointCandidates([])
+      return
+    }
+    fetchJointData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, record.account_id, record.visit_date, record.joint_fcr_id])
+
+  const fetchJointData = async () => {
+    try {
+      if (record.joint_fcr_id) {
+        const { data, error } = await supabase.rpc('fcr_joint_info', { p_id: record.joint_fcr_id })
+        if (error) throw error
+        setJointInfo(data?.[0] || null)
+        setJointCandidates([])
+      } else {
+        const { data, error } = await supabase.rpc('fcr_joint_candidates', {
+          p_account_id: record.account_id,
+          p_visit_date: record.visit_date,
+          p_exclude_id: id || null,
+        })
+        if (error) throw error
+        setJointInfo(null)
+        setJointCandidates(data || [])
+      }
+    } catch (err) {
+      console.error('Failed to load joint visit info:', err)
+    }
+  }
+
+  const handleLinkJoint = async (peerId) => {
+    setLinkingJointId(peerId)
+    try {
+      const { error } = await supabase.rpc('fcr_set_joint_link', { p_fcr_id: id, p_peer_id: peerId })
+      if (error) throw error
+      setRecord(prev => ({ ...prev, joint_fcr_id: peerId }))
+      toast.success('Linked as a joint visit')
+    } catch (err) {
+      toast.error(err.message || 'Failed to link the joint visit')
+    } finally {
+      setLinkingJointId(null)
+    }
+  }
 
   // Only accounts with a completed profile (Trade Terms set -- see
   // AccountForm) are selectable. Customer Information on the FCR is fully
@@ -213,12 +269,36 @@ export const FCRForm = () => {
         throw new Error(message)
       }
       if (!data?.ok) throw new Error(data?.error || 'Failed to send the acknowledgment email')
-      setRecord(prev => ({
-        ...prev,
-        ack_status: 'pending',
-        ack_requested_at: new Date().toISOString(),
-        ...(isFirstSend ? { visit_date: payload.visit_date } : {}),
-      }))
+
+      if (data.inherited || data.alreadyPending) {
+        // The edge function found a joint-visit peer FCR (same account,
+        // date, and attendee email) and either copied over its existing
+        // acknowledgment or linked to its still-pending one -- either way,
+        // no email went out. Re-read the authoritative state rather than
+        // guessing at it locally.
+        const { data: refreshed } = await supabase
+          .from('fcrs')
+          .select('ack_status, acknowledged_at, acknowledged_name, acknowledged_comment, status, joint_fcr_id')
+          .eq('id', id)
+          .single()
+        setRecord(prev => ({
+          ...prev,
+          ...(refreshed || {}),
+          ...(isFirstSend ? { visit_date: payload.visit_date } : {}),
+        }))
+        toast.success(
+          data.inherited
+            ? `Already acknowledged as part of ${data.peerName || 'the linked rep'}'s joint visit -- no email needed.`
+            : `An acknowledgment request for this visit was already sent as part of ${data.peerName || 'a linked'}'s FCR -- waiting on that same response.`
+        )
+      } else {
+        setRecord(prev => ({
+          ...prev,
+          ack_status: 'pending',
+          ack_requested_at: new Date().toISOString(),
+          ...(isFirstSend ? { visit_date: payload.visit_date } : {}),
+        }))
+      }
     } catch (err) {
       toast.error(err.message || 'Failed to send the acknowledgment request')
     } finally {
@@ -384,6 +464,60 @@ export const FCRForm = () => {
           <p className="text-xs text-gray-400 mt-3">
             Sends an email directly to the attendee with a one-click "Confirm Meeting Happened" button{record.status === 'draft' ? '. Once they click it, this FCR is automatically submitted to the NSM or Commercial AC Head for approval' : ''} -- only acknowledged FCRs are sent for approval, and the PDF export above only unlocks once it's approved.
           </p>
+        </div>
+      )}
+
+      {/* Joint Visit -- surfaces when another rep (typically the MBT Sales
+          / BD counterpart on a joint call) has filed their own FCR for
+          this same account on this same date, so the two aren't confused
+          for duplicates and don't each separately email the account
+          contact for what was one meeting (see fcr_link_joint_visit). */}
+      {isEdit && (jointInfo || jointCandidates.length > 0) && (
+        <div className="card print:hidden">
+          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <Users size={16} /> Joint Visit
+          </h3>
+          {jointInfo ? (
+            <div className="flex items-center gap-2 flex-wrap text-sm">
+              <span className="text-gray-700">
+                Linked with <span className="font-medium">{jointInfo.creator_name}</span>
+                {' '}({jointInfo.team_type === 'business_development' ? 'BD' : 'MBT Sales'})
+              </span>
+              {jointInfo.ack_status === 'acknowledged' ? (
+                <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                  <CheckCircle2 size={12} /> Their FCR is acknowledged
+                </span>
+              ) : jointInfo.ack_status === 'pending' ? (
+                <span className="flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                  <Clock3 size={12} /> Their acknowledgment is pending
+                </span>
+              ) : (
+                <span className="text-xs text-gray-400">They haven't sent an acknowledgment request yet</span>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-xs text-gray-400">
+                {jointCandidates.length === 1 ? 'Another FCR was' : `${jointCandidates.length} other FCRs were`} filed for this account on this same date. If this was a joint visit, link it so the account contact isn't asked to confirm the same meeting twice.
+              </p>
+              {jointCandidates.map(c => (
+                <div key={c.id} className="flex items-center justify-between gap-3 text-sm bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  <span className="text-gray-700">
+                    {c.creator_name} ({c.team_type === 'business_development' ? 'BD' : 'MBT Sales'})
+                  </span>
+                  {!readOnly && (
+                    <button
+                      onClick={() => handleLinkJoint(c.id)}
+                      disabled={linkingJointId === c.id}
+                      className="btn-secondary text-xs py-1 px-2 disabled:opacity-50"
+                    >
+                      {linkingJointId === c.id ? 'Linking...' : 'This was a joint visit'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
