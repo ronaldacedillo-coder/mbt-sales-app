@@ -13,7 +13,7 @@ import {
   ArrowRight
 } from 'lucide-react'
 import { ROLES, canCreateAccount, canCreateFCR } from '../utils/roles'
-import { format, parseISO, differenceInCalendarDays, addDays, startOfMonth } from 'date-fns'
+import { format, parseISO, differenceInCalendarDays, addDays, startOfMonth, startOfWeek, endOfWeek } from 'date-fns'
 
 const LEADERSHIP_ROLES = [ROLES.NSM, ROLES.COMMERCIAL_AC_HEAD]
 // VIEWER (Product Manager / HVAC Director) sees the same org-wide Team
@@ -38,6 +38,7 @@ export const Dashboard = () => {
   const [followUps, setFollowUps] = useState([])
   const [teamStats, setTeamStats] = useState({ approvedFCRs: 0, rejectedFCRs: 0, overdueFollowUps: 0 })
   const [teamMembers, setTeamMembers] = useState([])
+  const [teamWeekRange, setTeamWeekRange] = useState(null)
   const [approvedPlan, setApprovedPlan] = useState(null)
   const [planAccounts, setPlanAccounts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -148,7 +149,19 @@ export const Dashboard = () => {
       // `itineraries` above (those stay approval-queue-scoped for Head, e.g.
       // BD/NSM only) so this consolidated view and the per-member table
       // below always agree with each other regardless of role.
+      //
+      // FCR counts (approved/rejected/overdue, both the summary tiles and
+      // the per-member table) are scoped to the current week, Sunday
+      // through Saturday, by visit_date -- a weekly snapshot of field
+      // activity rather than an all-time total. MCP (Plan)/(Actual) stay
+      // scoped to the calendar month below, since those are inherently
+      // monthly planning documents.
       if (TEAM_OVERVIEW_ROLES.includes(role)) {
+        const weekStartDate = startOfWeek(today, { weekStartsOn: 0 }) // Sunday
+        const weekEndDate = endOfWeek(today, { weekStartsOn: 0 }) // Saturday
+        const weekStart = format(weekStartDate, 'yyyy-MM-dd')
+        const weekEnd = format(weekEndDate, 'yyyy-MM-dd')
+
         const memberRoles = role === ROLES.NSM ? ['se'] : ['se', 'bd']
         // Exclude anyone downgraded to view-only in this app via
         // sales_app_role_override (e.g. someone whose Pipeline role is
@@ -166,15 +179,18 @@ export const Dashboard = () => {
 
         const [{ data: memberFcrs }, { data: memberPlans }, { data: memberMcpActuals }] = memberIds.length
           ? await Promise.all([
-              supabase.from('fcrs').select('created_by, status, follow_up_date').in('created_by', memberIds),
+              supabase.from('fcrs').select('created_by, status, follow_up_date').in('created_by', memberIds).gte('visit_date', weekStart).lte('visit_date', weekEnd),
               supabase.from('itineraries').select('created_by, status').in('created_by', memberIds).eq('month', monthStart),
               // MCP (Actual) is generated per month (mcp_archive.month is
               // always the 1st of the month) -- this month's row per member,
-              // same "month" the Team Overview and MCP (Plan) column below
-              // are already scoped to, so all three stay in sync.
+              // same "month" the MCP (Plan) column below is already scoped
+              // to, so the two stay in sync with each other (independent of
+              // the weekly FCR window above).
               supabase.from('mcp_archive').select('generated_by, fcr_count, created_at').in('generated_by', memberIds).eq('month', monthStart).order('created_at', { ascending: false }),
             ])
           : [{ data: [] }, { data: [] }, { data: [] }]
+
+        setTeamWeekRange({ start: weekStartDate, end: weekEndDate })
 
         const overdueFollowUps = (memberFcrs || []).filter(f =>
           f.follow_up_date && f.status === 'approved' && parseISO(f.follow_up_date) < today
@@ -301,15 +317,20 @@ export const Dashboard = () => {
           <h3 className="text-lg font-semibold text-gray-900 mb-1">Team Overview</h3>
           <p className="text-sm text-gray-500 mb-4">
             {role === ROLES.NSM ? 'Consolidated data for the MBT Sales Team' : 'Consolidated data for the MBT Sales and BD Teams'}
+            {teamWeekRange && (
+              <>
+                {' '}&middot; This week ({format(teamWeekRange.start, 'MMM d')}&ndash;{format(teamWeekRange.end, 'MMM d, yyyy')})
+              </>
+            )}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="p-4 bg-emerald-50 rounded-lg">
               <p className="text-2xl font-bold text-emerald-700">{teamStats.approvedFCRs}</p>
-              <p className="text-sm text-emerald-700 mt-0.5">FCRs Approved</p>
+              <p className="text-sm text-emerald-700 mt-0.5">FCRs Approved This Week</p>
             </div>
             <div className="p-4 bg-red-50 rounded-lg">
               <p className="text-2xl font-bold text-red-700">{teamStats.rejectedFCRs}</p>
-              <p className="text-sm text-red-700 mt-0.5">FCRs Rejected</p>
+              <p className="text-sm text-red-700 mt-0.5">FCRs Rejected This Week</p>
             </div>
             <div className="p-4 bg-amber-50 rounded-lg">
               <p className="text-2xl font-bold text-amber-700">{teamStats.overdueFollowUps}</p>
@@ -472,9 +493,10 @@ export const Dashboard = () => {
 }
 
 // Per-member breakdown shown inside the Team Overview card -- one row per
-// Sales/BD Engineer with their FCR counts by status, this month's MCP
-// (Plan) status, and this month's MCP (Actual) generation status. Hidden
-// entirely (returns null) when there are no members of that team so NSM
+// Sales/BD Engineer with their FCR counts by status (scoped to the current
+// Sunday-Saturday week, by visit_date), this month's MCP (Plan) status,
+// and this month's MCP (Actual) generation status. Hidden entirely
+// (returns null) when there are no members of that team so NSM
 // (Sales-only) doesn't render an empty "BD Team" section that never
 // applies to them.
 const TeamMemberTable = ({ title, members, getStatusBadge }) => {
@@ -499,9 +521,9 @@ const TeamMemberTable = ({ title, members, getStatusBadge }) => {
           <thead>
             <tr className="text-left text-gray-500 border-b border-gray-100">
               <th className="py-2 px-2 font-medium">Name</th>
-              <th className="py-2 px-2 font-medium">FCRs Approved</th>
-              <th className="py-2 px-2 font-medium">FCRs Pending</th>
-              <th className="py-2 px-2 font-medium">FCRs Rejected</th>
+              <th className="py-2 px-2 font-medium">FCRs Approved (Week)</th>
+              <th className="py-2 px-2 font-medium">FCRs Pending (Week)</th>
+              <th className="py-2 px-2 font-medium">FCRs Rejected (Week)</th>
               <th className="py-2 px-2 font-medium">This Month's MCP (Plan)</th>
               <th className="py-2 px-2 font-medium">This Month's MCP (Actual)</th>
             </tr>
