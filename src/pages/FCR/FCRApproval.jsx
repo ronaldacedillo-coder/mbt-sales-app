@@ -66,7 +66,9 @@ export const FCRApproval = () => {
         .select(`
           *,
           account:accounts(company_name, city),
-          creator:user_profiles!fcrs_created_by_fkey(full_name:name, role)
+          creator:user_profiles!fcrs_created_by_fkey(full_name:name, role),
+          companion:user_profiles!fcrs_companion_id_fkey(full_name:name, role),
+          companion2:user_profiles!fcrs_companion2_id_fkey(full_name:name, role)
         `)
 
       if (statusFilter !== 'all') {
@@ -230,11 +232,17 @@ export const FCRApproval = () => {
                       {item.customer_info?.company_name || item.account?.company_name || 'Field Contact Report'}
                     </h3>
                     {statusBadge(item.status)}
-                    {item.joint_fcr_id && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200">
-                        <Users size={11} /> Joint Visit
-                      </span>
-                    )}
+                    {(item.companion_id || item.companion2_id) && (() => {
+                      const names = [item.companion?.full_name, item.companion2?.full_name].filter(Boolean).join(', ')
+                      return (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200"
+                          title={names ? `Accompanied by ${names}` : ''}
+                        >
+                          <Users size={11} /> Joint Visit{names ? `: ${names}` : ''}
+                        </span>
+                      )
+                    })()}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500 mb-3">

@@ -42,11 +42,17 @@ export const FCRList = () => {
       let query = supabase.from('fcrs').select(`
         *,
         account:accounts(company_name),
-        creator:user_profiles!fcrs_created_by_fkey(full_name:name, role)
+        creator:user_profiles!fcrs_created_by_fkey(full_name:name, role),
+        companion:user_profiles!fcrs_companion_id_fkey(full_name:name, role),
+        companion2:user_profiles!fcrs_companion2_id_fkey(full_name:name, role)
       `)
 
       if (role === ROLES.SALES_ENGINEER || role === ROLES.BD_ENGINEER) {
-        query = query.eq('created_by', user.id)
+        // Also show FCRs where this rep is listed as an accompanying
+        // companion on someone else's joint visit, not just the ones they
+        // filed themselves (read-only -- see the fcrs_select_companion RLS
+        // policy and FCRForm's isOwner/readOnly logic).
+        query = query.or(`created_by.eq.${user.id},companion_id.eq.${user.id},companion2_id.eq.${user.id}`)
       } else if (role === ROLES.NSM) {
         query = query.eq('submitter_role', ROLES.SALES_ENGINEER)
       } else if (role === ROLES.COMMERCIAL_AC_HEAD) {
@@ -237,11 +243,17 @@ export const FCRList = () => {
                         Not Yet Acknowledged
                       </span>
                     )}
-                    {item.joint_fcr_id && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200">
-                        <Users size={11} /> Joint Visit
-                      </span>
-                    )}
+                    {(item.companion_id || item.companion2_id) && (() => {
+                      const names = [item.companion?.full_name, item.companion2?.full_name].filter(Boolean).join(', ')
+                      return (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-violet-50 text-violet-700 border border-violet-200"
+                          title={names ? `Accompanied by ${names}` : ''}
+                        >
+                          <Users size={11} /> Joint Visit{names ? `: ${names}` : ''}
+                        </span>
+                      )
+                    })()}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">

@@ -23,6 +23,8 @@ const blankRecord = (teamType) => ({
   attendee_designation: '',
   attendee_email: '',
   ack_status: 'not_sent',
+  companion_id: null,
+  companion2_id: null,
 })
 
 export const FCRForm = () => {
@@ -47,66 +49,30 @@ export const FCRForm = () => {
   const [sendingAck, setSendingAck] = useState(false)
   const [checkingAck, setCheckingAck] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
-  const [jointInfo, setJointInfo] = useState(null)
-  const [jointCandidates, setJointCandidates] = useState([])
-  const [linkingJointId, setLinkingJointId] = useState(null)
+  const [teamMembers, setTeamMembers] = useState([])
 
   useEffect(() => {
     fetchAccounts()
+    fetchTeamMembers()
     if (isEdit) fetchFCR()
   }, [id])
 
-  // Two reps (e.g. an SE and a BD rep) visiting the same account together
-  // each file their own FCR -- this surfaces that connection: once linked
-  // (see fcr_link_joint_visit / fcr_set_joint_link), show who the other
-  // rep is and their acknowledgment status; before that, offer to link to
-  // any other FCR already filed for this same account on this same date.
-  // Only meaningful once the FCR has an id (fcr_set_joint_link needs one
-  // to authorize against), so this sits out entirely for a new, unsaved FCR.
-  useEffect(() => {
-    if (!isEdit || !record.account_id || !record.visit_date) {
-      setJointInfo(null)
-      setJointCandidates([])
-      return
-    }
-    fetchJointData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEdit, record.account_id, record.visit_date, record.joint_fcr_id])
-
-  const fetchJointData = async () => {
-    try {
-      if (record.joint_fcr_id) {
-        const { data, error } = await supabase.rpc('fcr_joint_info', { p_id: record.joint_fcr_id })
-        if (error) throw error
-        setJointInfo(data?.[0] || null)
-        setJointCandidates([])
-      } else {
-        const { data, error } = await supabase.rpc('fcr_joint_candidates', {
-          p_account_id: record.account_id,
-          p_visit_date: record.visit_date,
-          p_exclude_id: id || null,
-        })
-        if (error) throw error
-        setJointInfo(null)
-        setJointCandidates(data || [])
-      }
-    } catch (err) {
-      console.error('Failed to load joint visit info:', err)
-    }
-  }
-
-  const handleLinkJoint = async (peerId) => {
-    setLinkingJointId(peerId)
-    try {
-      const { error } = await supabase.rpc('fcr_set_joint_link', { p_fcr_id: id, p_peer_id: peerId })
-      if (error) throw error
-      setRecord(prev => ({ ...prev, joint_fcr_id: peerId }))
-      toast.success('Linked as a joint visit')
-    } catch (err) {
-      toast.error(err.message || 'Failed to link the joint visit')
-    } finally {
-      setLinkingJointId(null)
-    }
+  // Options for the "Accompanying Sales Engineer / BD Team Member" dropdown
+  // below -- any other active SE/BD, regardless of which team the current
+  // filer is on (a joint visit can pair either team with either team).
+  // Same view-only exclusion as the Dashboard's Team Overview: someone
+  // downgraded to view-only in this app via sales_app_role_override
+  // shouldn't show up as a pickable companion even if their Pipeline role
+  // is still 'se'/'bd'.
+  const fetchTeamMembers = async () => {
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('id, name, role')
+      .in('role', ['se', 'bd'])
+      .neq('id', user.id)
+      .or('sales_app_role_override.is.null,sales_app_role_override.neq.viewer')
+      .order('name')
+    setTeamMembers(data || [])
   }
 
   // Only accounts with a completed profile (Trade Terms set -- see
@@ -127,7 +93,7 @@ export const FCRForm = () => {
     try {
       const { data, error } = await supabase
         .from('fcrs')
-        .select('*, approver:user_profiles!fcrs_approved_by_fkey(full_name:name)')
+        .select('*, approver:user_profiles!fcrs_approved_by_fkey(full_name:name), companion:user_profiles!fcrs_companion_id_fkey(full_name:name, role), companion2:user_profiles!fcrs_companion2_id_fkey(full_name:name, role)')
         .eq('id', id)
         .single()
       if (error) throw error
@@ -160,6 +126,8 @@ export const FCRForm = () => {
       delete payload.creator
       delete payload.account
       delete payload.approver
+      delete payload.companion
+      delete payload.companion2
 
       if (isEdit) {
         // created_by/submitter_role/approver_role are set once at creation
@@ -234,6 +202,8 @@ export const FCRForm = () => {
       delete payload.creator
       delete payload.account
       delete payload.approver
+      delete payload.companion
+      delete payload.companion2
       // See handleSave -- ownership fields are set once at creation and
       // must not be overwritten by a later save.
       delete payload.created_by
@@ -273,35 +243,12 @@ export const FCRForm = () => {
       }
       if (!data?.ok) throw new Error(data?.error || 'Failed to send the acknowledgment email')
 
-      if (data.inherited || data.alreadyPending) {
-        // The edge function found a joint-visit peer FCR (same account,
-        // date, and attendee email) and either copied over its existing
-        // acknowledgment or linked to its still-pending one -- either way,
-        // no email went out. Re-read the authoritative state rather than
-        // guessing at it locally.
-        const { data: refreshed } = await supabase
-          .from('fcrs')
-          .select('ack_status, acknowledged_at, acknowledged_name, acknowledged_comment, status, joint_fcr_id')
-          .eq('id', id)
-          .single()
-        setRecord(prev => ({
-          ...prev,
-          ...(refreshed || {}),
-          ...(isFirstSend ? { visit_date: payload.visit_date } : {}),
-        }))
-        toast.success(
-          data.inherited
-            ? `Already acknowledged as part of ${data.peerName || 'the linked rep'}'s joint visit -- no email needed.`
-            : `An acknowledgment request for this visit was already sent as part of ${data.peerName || 'a linked'}'s FCR -- waiting on that same response.`
-        )
-      } else {
-        setRecord(prev => ({
-          ...prev,
-          ack_status: 'pending',
-          ack_requested_at: new Date().toISOString(),
-          ...(isFirstSend ? { visit_date: payload.visit_date } : {}),
-        }))
-      }
+      setRecord(prev => ({
+        ...prev,
+        ack_status: 'pending',
+        ack_requested_at: new Date().toISOString(),
+        ...(isFirstSend ? { visit_date: payload.visit_date } : {}),
+      }))
     } catch (err) {
       toast.error(err.message || 'Failed to send the acknowledgment request')
     } finally {
@@ -470,59 +417,69 @@ export const FCRForm = () => {
         </div>
       )}
 
-      {/* Joint Visit -- surfaces when another rep (typically the MBT Sales
-          / BD counterpart on a joint call) has filed their own FCR for
-          this same account on this same date, so the two aren't confused
-          for duplicates and don't each separately email the account
-          contact for what was one meeting (see fcr_link_joint_visit). */}
-      {isEdit && (jointInfo || jointCandidates.length > 0) && (
-        <div className="card print:hidden">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
-            <Users size={16} /> Joint Visit
-          </h3>
-          {jointInfo ? (
-            <div className="flex items-center gap-2 flex-wrap text-sm">
-              <span className="text-gray-700">
-                Linked with <span className="font-medium">{jointInfo.creator_name}</span>
-                {' '}({jointInfo.team_type === 'business_development' ? 'BD' : 'MBT Sales'})
-              </span>
-              {jointInfo.ack_status === 'acknowledged' ? (
-                <span className="flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
-                  <CheckCircle2 size={12} /> Their FCR is acknowledged
-                </span>
-              ) : jointInfo.ack_status === 'pending' ? (
-                <span className="flex items-center gap-1 text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                  <Clock3 size={12} /> Their acknowledgment is pending
-                </span>
-              ) : (
-                <span className="text-xs text-gray-400">They haven't sent an acknowledgment request yet</span>
-              )}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-xs text-gray-400">
-                {jointCandidates.length === 1 ? 'Another FCR was' : `${jointCandidates.length} other FCRs were`} filed for this account on this same date. If this was a joint visit, link it so the account contact isn't asked to confirm the same meeting twice.
-              </p>
-              {jointCandidates.map(c => (
-                <div key={c.id} className="flex items-center justify-between gap-3 text-sm bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                  <span className="text-gray-700">
-                    {c.creator_name} ({c.team_type === 'business_development' ? 'BD' : 'MBT Sales'})
+      {/* Joint Visit -- the account owner (this FCR's filer) just names
+          whoever accompanied them (up to two people), rather than each
+          accompanying rep having to file a separate FCR of their own.
+          companion_id/companion2_id grant that person read-only visibility
+          into this FCR too (see the fcrs_select_companion RLS policy). */}
+      <div className="card print:hidden">
+        <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+          <Users size={16} /> Joint Visit
+        </h3>
+        {readOnly ? (
+          <p className="text-sm text-gray-700">
+            {record.companion || record.companion2 ? (
+              <>
+                Accompanied by{' '}
+                {[record.companion, record.companion2].filter(Boolean).map((c, i, arr) => (
+                  <span key={c.full_name}>
+                    <span className="font-medium">{c.full_name}</span>{' '}({c.role === 'bd' ? 'BD Team' : 'MBT Sales'})
+                    {i < arr.length - 1 ? ' and ' : ''}
                   </span>
-                  {!readOnly && (
-                    <button
-                      onClick={() => handleLinkJoint(c.id)}
-                      disabled={linkingJointId === c.id}
-                      className="btn-secondary text-xs py-1 px-2 disabled:opacity-50"
-                    >
-                      {linkingJointId === c.id ? 'Linking...' : 'This was a joint visit'}
-                    </button>
-                  )}
-                </div>
-              ))}
+                ))}
+              </>
+            ) : (
+              <span className="text-gray-400">No accompanying rep listed</span>
+            )}
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+            <div>
+              <label className="label">Accompanying Rep #1 (optional)</label>
+              <select
+                value={record.companion_id || ''}
+                onChange={(e) => setRecord(prev => ({ ...prev, companion_id: e.target.value || null }))}
+                className="input"
+              >
+                <option value="">None</option>
+                {teamMembers.filter(m => m.id !== record.companion2_id).map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.role === 'bd' ? 'BD Team' : 'MBT Sales'})
+                  </option>
+                ))}
+              </select>
             </div>
-          )}
-        </div>
-      )}
+            <div>
+              <label className="label">Accompanying Rep #2 (optional)</label>
+              <select
+                value={record.companion2_id || ''}
+                onChange={(e) => setRecord(prev => ({ ...prev, companion2_id: e.target.value || null }))}
+                className="input"
+              >
+                <option value="">None</option>
+                {teamMembers.filter(m => m.id !== record.companion_id).map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.name} ({m.role === 'bd' ? 'BD Team' : 'MBT Sales'})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <p className="text-xs text-gray-400 sm:col-span-2">
+              If up to two people joined you on this visit, pick them here instead of having them file a separate FCR -- they'll be able to see this one in their own FCR list.
+            </p>
+          </div>
+        )}
+      </div>
 
       {!readOnly && (
         <div className="flex flex-wrap items-center justify-end gap-3 print:hidden">
