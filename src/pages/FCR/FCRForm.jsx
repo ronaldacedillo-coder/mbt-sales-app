@@ -211,8 +211,11 @@ export const FCRForm = () => {
   // authenticated as the current user, so it only ever works on FCRs they
   // own (enforced by the fcrs table's own RLS policies).
   const handleSendAcknowledgment = async () => {
-    if (!record.attendee_email) {
-      setFieldErrors({ attendee_email: 'Enter the attendee\'s email address first' })
+    if (!record.attendee_name || !record.attendee_email) {
+      setFieldErrors({
+        ...(!record.attendee_name ? { attendee_name: "Enter the attendee's name first" } : {}),
+        ...(!record.attendee_email ? { attendee_email: "Enter the attendee's email address first" } : {}),
+      })
       return
     }
     setSendingAck(true)
@@ -443,9 +446,9 @@ export const FCRForm = () => {
             {!isViewer && record.ack_status !== 'acknowledged' && (
               <button
                 onClick={handleSendAcknowledgment}
-                disabled={sendingAck || !record.attendee_email}
+                disabled={sendingAck || !record.attendee_email || !record.attendee_name}
                 className="btn-secondary flex items-center gap-2 text-sm disabled:opacity-50"
-                title={record.attendee_email ? '' : "Fill in the attendee's email above first"}
+                title={!record.attendee_name ? "Fill in the attendee's name above first" : !record.attendee_email ? "Fill in the attendee's email above first" : ''}
               >
                 <Mail size={14} /> {sendingAck ? 'Sending...' : record.ack_status === 'pending' ? 'Resend Request' : 'Send Acknowledgment Request'}
               </button>

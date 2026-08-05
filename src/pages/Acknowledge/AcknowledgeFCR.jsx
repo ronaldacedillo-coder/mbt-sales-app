@@ -36,6 +36,13 @@ export const AcknowledgeFCR = () => {
       const row = data[0]
       setDetails(row)
       setName(row.attendee_name || '')
+      // If the FCR was sent without an attendee name on file, the "Confirm
+      // Meeting Happened" button below is disabled until a name is typed
+      // in (it can't submit a blank confirmation). Open the name field
+      // immediately in that case rather than leaving a disabled button
+      // with no visible reason why -- the account contact would otherwise
+      // have no way to tell it just needs their name first.
+      if (!row.attendee_name) setEditingName(true)
       setLoading(false)
     }
     load()
