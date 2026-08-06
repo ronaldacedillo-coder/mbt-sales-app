@@ -7,7 +7,7 @@ import { downloadExportExcel } from '../../lib/excelExport'
 import { buildExportReportPdf } from '../../lib/exportReportPdf'
 import { downloadMemberFcrsZip } from '../../lib/weeklyReportZip'
 import { downloadVisitationCensusExcel } from '../../lib/visitationCensusExcel'
-import { startOfMonth, endOfMonth, format, parseISO } from 'date-fns'
+import { startOfMonth, endOfMonth, startOfWeek, endOfWeek, format, parseISO } from 'date-fns'
 import {
   ArrowLeft,
   FileSpreadsheet,
@@ -67,6 +67,13 @@ export const ExportCenter = () => {
     try {
       const monthStart = format(startOfMonth(parseISO(start)), 'yyyy-MM-dd')
       const monthEnd = format(endOfMonth(parseISO(end)), 'yyyy-MM-dd')
+      // Visitation Census always renders full Sunday-Saturday weeks (see
+      // buildWeeks in visitationCensusExcel.js), but the "From"/"To" date
+      // pickers let the user land mid-week -- widen the query to the full
+      // first/last week so a mid-week start doesn't silently truncate that
+      // week's data out from under a tab that still claims to cover it.
+      const censusStart = format(startOfWeek(parseISO(start), { weekStartsOn: 0 }), 'yyyy-MM-dd')
+      const censusEnd = format(endOfWeek(parseISO(end), { weekStartsOn: 0 }), 'yyyy-MM-dd')
 
       const [{ data: fcrData, error: fcrError }, { data: mcpData, error: mcpError }, { data: approvedData, error: approvedError }, { data: memberData, error: memberError }, { data: censusData, error: censusError }] = await Promise.all([
         supabase
@@ -122,8 +129,8 @@ export const ExportCenter = () => {
             companion:user_profiles!fcrs_companion_id_fkey(name),
             companion2:user_profiles!fcrs_companion2_id_fkey(name)
           `)
-          .gte('visit_date', start)
-          .lte('visit_date', end)
+          .gte('visit_date', censusStart)
+          .lte('visit_date', censusEnd)
           .order('visit_date', { ascending: true }),
       ])
       if (fcrError) throw fcrError
@@ -173,7 +180,12 @@ export const ExportCenter = () => {
     setExportingCensus(true)
     setError('')
     try {
-      await downloadVisitationCensusExcel({ fcrs: censusFcrs, teamMembers, start, end, rangeLabel, scopeLabel, generatedBy: profile?.full_name })
+      // Match the widened range the censusFcrs query above already fetched
+      // (full Sunday-Saturday weeks) so buildWeeks() and the data it's
+      // filtering against agree on what "Week 1" actually covers.
+      const censusStart = format(startOfWeek(parseISO(start), { weekStartsOn: 0 }), 'yyyy-MM-dd')
+      const censusEnd = format(endOfWeek(parseISO(end), { weekStartsOn: 0 }), 'yyyy-MM-dd')
+      await downloadVisitationCensusExcel({ fcrs: censusFcrs, teamMembers, start: censusStart, end: censusEnd, rangeLabel, scopeLabel, generatedBy: profile?.full_name })
     } catch (err) {
       setError(err.message || 'Failed to build the Visitation Census')
     } finally {
