@@ -6,6 +6,7 @@ import { ROLES } from '../../utils/roles'
 import { downloadExportExcel } from '../../lib/excelExport'
 import { buildExportReportPdf } from '../../lib/exportReportPdf'
 import { downloadMemberFcrsZip } from '../../lib/weeklyReportZip'
+import { downloadVisitationCensusExcel } from '../../lib/visitationCensusExcel'
 import { startOfMonth, endOfMonth, format, parseISO } from 'date-fns'
 import {
   ArrowLeft,
@@ -16,6 +17,7 @@ import {
   AlertCircle,
   Download,
   Users,
+  CalendarCheck,
 } from 'lucide-react'
 
 // A cross-team export -- unlike Weekly Report Download (which is scoped to
@@ -40,10 +42,12 @@ export const ExportCenter = () => {
   const [fcrs, setFcrs] = useState([])
   const [mcpEntries, setMcpEntries] = useState([])
   const [approvedFcrs, setApprovedFcrs] = useState([])
+  const [censusFcrs, setCensusFcrs] = useState([])
   const [teamMembers, setTeamMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [exportingExcel, setExportingExcel] = useState(false)
   const [exportingPdf, setExportingPdf] = useState(false)
+  const [exportingCensus, setExportingCensus] = useState(false)
   const [downloadingMemberId, setDownloadingMemberId] = useState(null)
   const [error, setError] = useState('')
 
@@ -64,7 +68,7 @@ export const ExportCenter = () => {
       const monthStart = format(startOfMonth(parseISO(start)), 'yyyy-MM-dd')
       const monthEnd = format(endOfMonth(parseISO(end)), 'yyyy-MM-dd')
 
-      const [{ data: fcrData, error: fcrError }, { data: mcpData, error: mcpError }, { data: approvedData, error: approvedError }, { data: memberData, error: memberError }] = await Promise.all([
+      const [{ data: fcrData, error: fcrError }, { data: mcpData, error: mcpError }, { data: approvedData, error: approvedError }, { data: memberData, error: memberError }, { data: censusData, error: censusError }] = await Promise.all([
         supabase
           .from('fcrs')
           .select(`
@@ -106,15 +110,32 @@ export const ExportCenter = () => {
           .in('role', ['se', 'bd'])
           .or('sales_app_role_override.is.null,sales_app_role_override.neq.viewer')
           .order('name'),
+        // Visitation Census needs every FCR in the range regardless of
+        // status (Filed/Acknowledged/Approved/Pending/Draft all get their
+        // own column), unlike the acknowledged-only query above.
+        supabase
+          .from('fcrs')
+          .select(`
+            *,
+            account:accounts(company_name),
+            creator:user_profiles!fcrs_created_by_fkey(full_name:name),
+            companion:user_profiles!fcrs_companion_id_fkey(name),
+            companion2:user_profiles!fcrs_companion2_id_fkey(name)
+          `)
+          .gte('visit_date', start)
+          .lte('visit_date', end)
+          .order('visit_date', { ascending: true }),
       ])
       if (fcrError) throw fcrError
       if (mcpError) throw mcpError
       if (approvedError) throw approvedError
       if (memberError) throw memberError
+      if (censusError) throw censusError
       setFcrs(fcrData || [])
       setMcpEntries(mcpData || [])
       setApprovedFcrs(approvedData || [])
       setTeamMembers(memberData || [])
+      setCensusFcrs(censusData || [])
     } catch (err) {
       setError(err.message || 'Failed to load export data')
     } finally {
@@ -145,6 +166,18 @@ export const ExportCenter = () => {
       setError(err.message || 'Failed to build the PDF export')
     } finally {
       setExportingPdf(false)
+    }
+  }
+
+  const handleCensus = async () => {
+    setExportingCensus(true)
+    setError('')
+    try {
+      await downloadVisitationCensusExcel({ fcrs: censusFcrs, teamMembers, start, end, rangeLabel, scopeLabel, generatedBy: profile?.full_name })
+    } catch (err) {
+      setError(err.message || 'Failed to build the Visitation Census')
+    } finally {
+      setExportingCensus(false)
     }
   }
 
@@ -236,6 +269,25 @@ export const ExportCenter = () => {
           </button>
         </div>
       </div>
+
+      {!loading && teamMembers.length > 0 && (
+        <div className="card">
+          <h2 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+            <CalendarCheck size={16} /> Visitation Census
+          </h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Every active MBT Sales/BD team member, broken out by Sunday-Saturday week within {rangeLabel} -- FCRs filed, acknowledged, and approved, plus the accounts each rep visited. Includes reps with zero visits, so it reads as a full roster census.
+          </p>
+          <button
+            onClick={handleCensus}
+            disabled={loading || exportingCensus}
+            className="btn-primary flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <FileSpreadsheet size={16} />
+            {exportingCensus ? 'Building Census...' : 'Download Visitation Census (.xlsx)'}
+          </button>
+        </div>
+      )}
 
       {!loading && teamMembers.length > 0 && (
         <div className="card">
