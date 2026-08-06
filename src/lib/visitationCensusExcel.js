@@ -42,6 +42,13 @@ const totalCellStyle = (center) => ({
   border: allBorders,
 })
 
+const groupHeaderStyle = {
+  font: { bold: true, sz: 10, color: { rgb: NAVY } },
+  fill: { fgColor: { rgb: 'DBEAFE' } },
+  alignment: { vertical: 'center', horizontal: 'left' },
+  border: allBorders,
+}
+
 const titleCellStyle = {
   font: { bold: true, sz: 18, color: { rgb: HEADER_TEXT } },
   fill: { fgColor: { rgb: NAVY } },
@@ -91,6 +98,18 @@ const buildWeeks = (start, end) => {
 const accountName = (f) => f.customer_info?.company_name || f.account?.company_name || 'Unknown Account'
 const companionNames = (f) => [f.companion?.name, f.companion2?.name].filter(Boolean)
 
+// MBT Sales together, then BD Team together (each alphabetical by name),
+// rather than interleaved -- both the Overview leaderboard and each week's
+// tab render one contiguous block per team, with a group header row.
+const GROUP_LABELS = { se: 'MBT Sales Team', bd: 'BD Team' }
+const groupMembers = (teamMembers) => {
+  const byName = (a, b) => a.name.localeCompare(b.name)
+  return [
+    { role: 'se', label: GROUP_LABELS.se, members: teamMembers.filter(m => m.role === 'se').sort(byName) },
+    { role: 'bd', label: GROUP_LABELS.bd, members: teamMembers.filter(m => m.role === 'bd').sort(byName) },
+  ].filter(g => g.members.length > 0)
+}
+
 const buildOverviewSheet = (XLSX, { fcrs, teamMembers, weeks, rangeLabel, scopeLabel, generatedBy }) => {
   const ws = {}
   const rows = [
@@ -111,25 +130,33 @@ const buildOverviewSheet = (XLSX, { fcrs, teamMembers, weeks, rangeLabel, scopeL
   const lbHead = ['Team', 'Name', 'FCRs Filed', 'Acknowledged', 'Approved', 'Unique Accounts Visited', 'Weeks with Visit']
   rows.push(lbHead.map(h => ({ value: h, style: headerCellStyle })))
 
-  teamMembers.forEach((m, i) => {
-    const personFcrs = fcrs.filter(f => f.created_by === m.id)
-    const acked = personFcrs.filter(f => f.ack_status === 'acknowledged').length
-    const approved = personFcrs.filter(f => f.status === 'approved').length
-    const uniqueAccounts = new Set(personFcrs.map(accountName)).size
-    const weeksActive = new Set(personFcrs.map(f => weeks.find(w => f.visit_date >= format(w.start, 'yyyy-MM-dd') && f.visit_date <= format(w.end, 'yyyy-MM-dd'))?.label)).size
-    const muted = personFcrs.length === 0
-    const zebra = i % 2 === 1
-    const s = bodyCellStyle(zebra, muted)
-    const sc = bodyCellStyle(zebra, muted, true)
-    rows.push([
-      { value: m.role === 'bd' ? 'BD Team' : 'MBT Sales', style: s },
-      { value: m.name, style: s },
-      { value: personFcrs.length, style: sc },
-      { value: acked, style: sc },
-      { value: approved, style: sc },
-      { value: uniqueAccounts, style: sc },
-      { value: `${weeksActive} of ${weeks.length}`, style: sc },
-    ])
+  const groupMerges = []
+  let rowCounter = 0
+  groupMembers(teamMembers).forEach((group) => {
+    groupMerges.push({ s: { r: rows.length, c: 0 }, e: { r: rows.length, c: lbHead.length - 1 } })
+    rows.push([{ value: group.label, style: groupHeaderStyle }])
+
+    group.members.forEach((m) => {
+      const personFcrs = fcrs.filter(f => f.created_by === m.id)
+      const acked = personFcrs.filter(f => f.ack_status === 'acknowledged').length
+      const approved = personFcrs.filter(f => f.status === 'approved').length
+      const uniqueAccounts = new Set(personFcrs.map(accountName)).size
+      const weeksActive = new Set(personFcrs.map(f => weeks.find(w => f.visit_date >= format(w.start, 'yyyy-MM-dd') && f.visit_date <= format(w.end, 'yyyy-MM-dd'))?.label)).size
+      const muted = personFcrs.length === 0
+      const zebra = rowCounter % 2 === 1
+      rowCounter++
+      const s = bodyCellStyle(zebra, muted)
+      const sc = bodyCellStyle(zebra, muted, true)
+      rows.push([
+        { value: group.label === GROUP_LABELS.bd ? 'BD Team' : 'MBT Sales', style: s },
+        { value: m.name, style: s },
+        { value: personFcrs.length, style: sc },
+        { value: acked, style: sc },
+        { value: approved, style: sc },
+        { value: uniqueAccounts, style: sc },
+        { value: `${weeksActive} of ${weeks.length}`, style: sc },
+      ])
+    })
   })
 
   rows.push([
@@ -162,7 +189,7 @@ const buildOverviewSheet = (XLSX, { fcrs, teamMembers, weeks, rangeLabel, scopeL
   })
 
   writeStyledRows(ws, XLSX, rows)
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }]
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }, ...groupMerges]
   ws['!cols'] = [{ wch: 13 }, { wch: 24 }, { wch: 13 }, { wch: 14 }, { wch: 11 }, { wch: 22 }, { wch: 16 }]
   ws['!rows'] = [{ hpt: 30 }]
   ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length, c: 6 } })
@@ -185,33 +212,41 @@ const buildWeekSheet = (XLSX, { week, fcrs, teamMembers }) => {
   rows.push(head.map(h => ({ value: h, style: headerCellStyle })))
 
   let totFiled = 0, totAck = 0, totApproved = 0, totPending = 0, totDraft = 0, totJoint = 0, totAccounts = 0
-  teamMembers.forEach((m, i) => {
-    const personFcrs = weekFcrs.filter(f => f.created_by === m.id)
-    const accounts = [...new Set(personFcrs.map(accountName))]
-    const filed = personFcrs.length
-    const acked = personFcrs.filter(f => f.ack_status === 'acknowledged').length
-    const approved = personFcrs.filter(f => f.status === 'approved').length
-    const pending = personFcrs.filter(f => f.status === 'pending_approval').length
-    const draft = personFcrs.filter(f => f.status === 'draft').length
-    const joint = personFcrs.filter(f => companionNames(f).length > 0).length
-    totFiled += filed; totAck += acked; totApproved += approved; totPending += pending; totDraft += draft; totJoint += joint; totAccounts += accounts.length
+  const groupMerges = []
+  let rowCounter = 0
+  groupMembers(teamMembers).forEach((group) => {
+    groupMerges.push({ s: { r: rows.length, c: 0 }, e: { r: rows.length, c: head.length - 1 } })
+    rows.push([{ value: group.label, style: groupHeaderStyle }])
 
-    const muted = filed === 0
-    const zebra = i % 2 === 1
-    const s = bodyCellStyle(zebra, muted)
-    const sc = bodyCellStyle(zebra, muted, true)
-    rows.push([
-      { value: m.role === 'bd' ? 'BD Team' : 'MBT Sales', style: s },
-      { value: m.name, style: s },
-      { value: accounts.length, style: sc },
-      { value: filed, style: sc },
-      { value: acked, style: sc },
-      { value: approved, style: sc },
-      { value: pending, style: sc },
-      { value: draft, style: sc },
-      { value: joint, style: sc },
-      { value: accounts.length ? accounts.join('; ') : '-', style: s },
-    ])
+    group.members.forEach((m) => {
+      const personFcrs = weekFcrs.filter(f => f.created_by === m.id)
+      const accounts = [...new Set(personFcrs.map(accountName))]
+      const filed = personFcrs.length
+      const acked = personFcrs.filter(f => f.ack_status === 'acknowledged').length
+      const approved = personFcrs.filter(f => f.status === 'approved').length
+      const pending = personFcrs.filter(f => f.status === 'pending_approval').length
+      const draft = personFcrs.filter(f => f.status === 'draft').length
+      const joint = personFcrs.filter(f => companionNames(f).length > 0).length
+      totFiled += filed; totAck += acked; totApproved += approved; totPending += pending; totDraft += draft; totJoint += joint; totAccounts += accounts.length
+
+      const muted = filed === 0
+      const zebra = rowCounter % 2 === 1
+      rowCounter++
+      const s = bodyCellStyle(zebra, muted)
+      const sc = bodyCellStyle(zebra, muted, true)
+      rows.push([
+        { value: group.label === GROUP_LABELS.bd ? 'BD Team' : 'MBT Sales', style: s },
+        { value: m.name, style: s },
+        { value: accounts.length, style: sc },
+        { value: filed, style: sc },
+        { value: acked, style: sc },
+        { value: approved, style: sc },
+        { value: pending, style: sc },
+        { value: draft, style: sc },
+        { value: joint, style: sc },
+        { value: accounts.length ? accounts.join('; ') : '-', style: s },
+      ])
+    })
   })
 
   rows.push([
@@ -228,7 +263,7 @@ const buildWeekSheet = (XLSX, { week, fcrs, teamMembers }) => {
   ])
 
   writeStyledRows(ws, XLSX, rows)
-  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }]
+  ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }, ...groupMerges]
   ws['!cols'] = [{ wch: 11 }, { wch: 22 }, { wch: 10 }, { wch: 9 }, { wch: 12 }, { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 9 }, { wch: 60 }]
   ws['!rows'] = [{ hpt: 26 }, , , { hpt: 30 }]
   ws['!freeze'] = { xSplit: 0, ySplit: headerRowIdx + 1 }
@@ -241,7 +276,12 @@ const buildWeekSheet = (XLSX, { week, fcrs, teamMembers }) => {
 const buildDataSheet = (XLSX, fcrs) => {
   const ws = {}
   const head = ['Visit Date', 'Team', 'Rep', 'Account Visited', 'FCR Status', 'Ack Status', 'Companion 1', 'Companion 2']
-  const sorted = [...fcrs].sort((a, b) => (a.visit_date || '').localeCompare(b.visit_date || ''))
+  // MBT Sales rows together, then BD Team rows together, each sub-sorted by
+  // visit date -- matches the grouping used on the Overview and weekly tabs.
+  const sorted = [...fcrs].sort((a, b) => {
+    if (a.team_type !== b.team_type) return a.team_type === 'business_development' ? 1 : -1
+    return (a.visit_date || '').localeCompare(b.visit_date || '')
+  })
   const STATUS_LABEL = { approved: 'Approved', pending_approval: 'Pending Approval', draft: 'Draft', rejected: 'Rejected' }
   const ACK_LABEL = { acknowledged: 'Acknowledged', pending: 'Pending', not_sent: 'Not Sent' }
   const rows = [
